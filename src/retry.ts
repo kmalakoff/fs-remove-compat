@@ -13,8 +13,8 @@ const BACKOFF_FACTOR = 1.2;
  * Windows gets automatic retries, POSIX does not.
  */
 export const SAFE_DEFAULTS = {
-  recursive: false,
-  force: false,
+  recursive: true,
+  force: true,
   maxRetries: IS_WINDOWS ? 10 : 0,
   retryDelay: 100,
 };

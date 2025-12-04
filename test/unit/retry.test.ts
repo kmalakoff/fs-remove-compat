@@ -19,8 +19,8 @@ import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS, sleep } fro
 describe('retry utilities', () => {
   describe('SAFE_DEFAULTS', () => {
     it('should have correct default values', () => {
-      assert.equal(SAFE_DEFAULTS.recursive, false);
-      assert.equal(SAFE_DEFAULTS.force, false);
+      assert.equal(SAFE_DEFAULTS.recursive, true);
+      assert.equal(SAFE_DEFAULTS.force, true);
       assert.equal(SAFE_DEFAULTS.retryDelay, 100);
       // maxRetries depends on platform
       if (process.platform === 'win32') {
