@@ -1,8 +1,8 @@
 import fs from 'fs';
-import { fixWinEPERMSync, shouldFixEPERM } from './fallback/fixWinEPERM.js';
-import fallbackRmSync from './fallback/rmSync.js';
-import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS } from './retry.js';
-import type { RmOptions } from './types.js';
+import { fixWinEPERMSync, shouldFixEPERM } from './fallback/fixWinEPERM.ts';
+import fallbackRmSync from './fallback/rmSync.ts';
+import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS } from './retry.ts';
+import type { RmOptions } from './types.ts';
 
 /**
  * Check if native fs.rmSync is available.

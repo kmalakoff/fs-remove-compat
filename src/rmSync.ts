@@ -1,6 +1,6 @@
 import fs from 'fs';
-import fallbackRmSync from './fallback/rmSync.js';
-import type { RmOptions } from './types.js';
+import fallbackRmSync from './fallback/rmSync.ts';
+import type { RmOptions } from './types.ts';
 
 /**
  * Check if native fs.rmSync is available.

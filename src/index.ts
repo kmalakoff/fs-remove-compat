@@ -9,12 +9,12 @@
  */
 
 // Strict ponyfills (match Node.js fs.rm behavior)
-export { default as rm } from './rm.js';
-export { default as rmSync } from './rmSync.js';
+export { default as rm } from './rm.ts';
+export { default as rmSync } from './rmSync.ts';
 
 // Enhanced variants (Windows-friendly defaults)
-export { default as safeRm } from './safeRm.js';
-export { default as safeRmSync } from './safeRmSync.js';
+export { default as safeRm } from './safeRm.ts';
+export { default as safeRmSync } from './safeRmSync.ts';
 
 // Types
-export type { RmCallback, RmOptions } from './types.js';
+export type { RmCallback, RmOptions } from './types.ts';

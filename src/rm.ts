@@ -1,7 +1,7 @@
 import fs from 'fs';
 import Pinkie from 'pinkie-promise';
-import fallbackRm from './fallback/rm.js';
-import type { RmCallback, RmOptions } from './types.js';
+import fallbackRm from './fallback/rm.ts';
+import type { RmCallback, RmOptions } from './types.ts';
 
 /**
  * Check if native fs.rm is available.

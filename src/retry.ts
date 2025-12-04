@@ -25,7 +25,7 @@ export const SAFE_DEFAULTS = {
 export function isRetryableError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const code = (err as NodeJS.ErrnoException).code;
-  return code !== undefined && RETRYABLE_CODES.includes(code);
+  return code !== undefined && RETRYABLE_CODES.indexOf(code) !== -1;
 }
 
 /**

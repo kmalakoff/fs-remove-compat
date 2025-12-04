@@ -1,9 +1,9 @@
 import fs from 'fs';
 import Pinkie from 'pinkie-promise';
-import { fixWinEPERM, shouldFixEPERM } from './fallback/fixWinEPERM.js';
-import fallbackRm from './fallback/rm.js';
-import { getBackoffDelay, isRetryableError, SAFE_DEFAULTS, sleep } from './retry.js';
-import type { RmCallback, RmOptions } from './types.js';
+import { fixWinEPERM, shouldFixEPERM } from './fallback/fixWinEPERM.ts';
+import fallbackRm from './fallback/rm.ts';
+import { getBackoffDelay, isRetryableError, SAFE_DEFAULTS, sleep } from './retry.ts';
+import type { RmCallback, RmOptions } from './types.ts';
 
 /**
  * Check if native fs.rm is available.

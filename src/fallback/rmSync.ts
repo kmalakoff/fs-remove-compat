@@ -1,6 +1,6 @@
 import fs from 'fs';
-import type { RmOptions } from '../types.js';
-import { fixWinEPERMSync, shouldFixEPERM } from './fixWinEPERM.js';
+import type { RmOptions } from '../types.ts';
+import { fixWinEPERMSync, shouldFixEPERM } from './fixWinEPERM.ts';
 
 const _IS_WINDOWS = process.platform === 'win32';
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
@@ -43,7 +43,7 @@ function unlinkSync(path: string, options: Required<RmOptions>): void {
       }
 
       // Check if retryable
-      if (!RETRYABLE_CODES.includes(error.code || '') || attempt >= options.maxRetries) {
+      if (RETRYABLE_CODES.indexOf(error.code || '') === -1 || attempt >= options.maxRetries) {
         throw error;
       }
 
@@ -69,7 +69,7 @@ function rmdirSync(path: string, options: Required<RmOptions>): void {
         throw error;
       }
 
-      if (!RETRYABLE_CODES.includes(error.code || '') || attempt >= options.maxRetries) {
+      if (RETRYABLE_CODES.indexOf(error.code || '') === -1 || attempt >= options.maxRetries) {
         throw error;
       }
 

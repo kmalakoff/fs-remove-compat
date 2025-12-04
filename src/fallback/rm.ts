@@ -1,6 +1,6 @@
 import fs from 'fs';
-import type { RmCallback, RmOptions } from '../types.js';
-import { fixWinEPERM, shouldFixEPERM } from './fixWinEPERM.js';
+import type { RmCallback, RmOptions } from '../types.ts';
+import { fixWinEPERM, shouldFixEPERM } from './fixWinEPERM.ts';
 
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 
@@ -50,7 +50,7 @@ function rmdirWithRetry(path: string, options: Required<RmOptions>, attempt: num
  * Retry logic helper.
  */
 function retryOrFail(path: string, options: Required<RmOptions>, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback, retryFn: (path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback) => void): void {
-  if (!RETRYABLE_CODES.includes(err.code || '') || attempt >= options.maxRetries) {
+  if (RETRYABLE_CODES.indexOf(err.code || '') === -1 || attempt >= options.maxRetries) {
     callback(err);
     return;
   }
