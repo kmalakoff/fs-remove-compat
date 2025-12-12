@@ -1,6 +1,6 @@
 {
   "name": "fs-remove-compat",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Cross-platform file removal utilities with Node.js 0.8+ compatibility. Provides rm and rmSync ponyfills matching Node.js fs.rm API, plus safeRm/safeRmSync with Windows-friendly retry defaults.",
   "keywords": [
     "fs",
