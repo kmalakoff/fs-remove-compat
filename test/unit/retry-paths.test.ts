@@ -9,15 +9,15 @@ import url from 'url';
 import fallbackRm from '../../src/fallback/rm.ts';
 import fallbackRmSync from '../../src/fallback/rmSync.ts';
 
-var ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURLToPath(import.meta.url);
-var ___dirname = path.dirname(___filename);
+const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURLToPath(import.meta.url);
+const ___dirname = path.dirname(___filename);
 
-var TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'retry-test');
+const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'retry-test');
 
 // Patch global Promise for Node 0.8 compatibility
 (() => {
   if (typeof global === 'undefined') return;
-  var globalPromise = (global as typeof globalThis & { Promise?: typeof Promise }).Promise;
+  const globalPromise = (global as typeof globalThis & { Promise?: typeof Promise }).Promise;
   before(() => {
     (global as typeof globalThis & { Promise: typeof Promise }).Promise = Pinkie;
   });
@@ -27,7 +27,7 @@ var TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'retry-test');
 })();
 
 // Simple monkey-patching utilities for Node 0.8 compatibility (no sinon)
-var originalFunctions: { [key: string]: unknown } = {};
+let originalFunctions: { [key: string]: unknown } = {};
 
 function mockFs(name: string, mockFn: (...args: unknown[]) => unknown): void {
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic property access on fs module
@@ -45,7 +45,7 @@ function _restoreFs(name: string): void {
 }
 
 function restoreAllFs(): void {
-  for (var name in originalFunctions) {
+  for (const name in originalFunctions) {
     // biome-ignore lint/suspicious/noPrototypeBuiltins: Object.hasOwn not available in Node 0.8
     if (originalFunctions.hasOwnProperty(name)) {
       // biome-ignore lint/suspicious/noExplicitAny: Dynamic property access on fs module
@@ -71,27 +71,27 @@ function setupTmp(): void {
 }
 
 function createEBUSYError(): NodeJS.ErrnoException {
-  var err = new Error('EBUSY: resource busy or locked') as NodeJS.ErrnoException;
+  const err = new Error('EBUSY: resource busy or locked') as NodeJS.ErrnoException;
   err.code = 'EBUSY';
   err.syscall = 'unlink';
   return err;
 }
 
 function createENOTEMPTYError(): NodeJS.ErrnoException {
-  var err = new Error('ENOTEMPTY: directory not empty') as NodeJS.ErrnoException;
+  const err = new Error('ENOTEMPTY: directory not empty') as NodeJS.ErrnoException;
   err.code = 'ENOTEMPTY';
   err.syscall = 'rmdir';
   return err;
 }
 
 function createENOENTError(): NodeJS.ErrnoException {
-  var err = new Error('ENOENT: no such file or directory') as NodeJS.ErrnoException;
+  const err = new Error('ENOENT: no such file or directory') as NodeJS.ErrnoException;
   err.code = 'ENOENT';
   return err;
 }
 
 function createEACCESError(): NodeJS.ErrnoException {
-  var err = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+  const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
   err.code = 'EACCES';
   return err;
 }
@@ -103,11 +103,11 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRm retry on EBUSY', () => {
     it('should retry on EBUSY and succeed', (done) => {
-      var filePath = path.join(TMP_DIR, 'ebusy-file.txt');
+      const filePath = path.join(TMP_DIR, 'ebusy-file.txt');
       fs.writeFileSync(filePath, 'content');
 
-      var callCount = 0;
-      var originalUnlink = fs.unlink.bind(fs);
+      let callCount = 0;
+      const originalUnlink = fs.unlink.bind(fs);
       mockFs('unlink', (p: fs.PathLike, cb: fs.NoParamCallback) => {
         callCount++;
         if (callCount === 1) {
@@ -128,7 +128,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should fail after max retries on EBUSY', (done) => {
-      var filePath = path.join(TMP_DIR, 'ebusy-fail.txt');
+      const filePath = path.join(TMP_DIR, 'ebusy-fail.txt');
       fs.writeFileSync(filePath, 'content');
 
       mockFs('unlink', (_p: fs.PathLike, cb: fs.NoParamCallback) => {
@@ -147,11 +147,11 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRm retry on rmdir ENOTEMPTY', () => {
     it('should retry rmdir on ENOTEMPTY and succeed', (done) => {
-      var dirPath = path.join(TMP_DIR, 'enotempty-dir');
+      const dirPath = path.join(TMP_DIR, 'enotempty-dir');
       mkdirp.sync(dirPath);
 
-      var callCount = 0;
-      var originalRmdir = fs.rmdir.bind(fs);
+      let callCount = 0;
+      const originalRmdir = fs.rmdir.bind(fs);
       mockFs('rmdir', (p: fs.PathLike, cb: fs.NoParamCallback) => {
         callCount++;
         if (callCount === 1) {
@@ -173,7 +173,7 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRm ENOENT handling in unlink', () => {
     it('should handle ENOENT in unlink without force', (done) => {
-      var filePath = path.join(TMP_DIR, 'enoent-unlink.txt');
+      const filePath = path.join(TMP_DIR, 'enoent-unlink.txt');
       // Don't create the file
 
       fallbackRm(filePath, undefined, (err) => {
@@ -184,7 +184,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore ENOENT in unlink with force', (done) => {
-      var filePath = path.join(TMP_DIR, 'enoent-unlink-force.txt');
+      const filePath = path.join(TMP_DIR, 'enoent-unlink-force.txt');
       // Don't create the file
 
       fallbackRm(filePath, { force: true }, (err) => {
@@ -194,7 +194,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle ENOENT race in unlink without force (file disappears after lstat)', (done) => {
-      var filePath = path.join(TMP_DIR, 'enoent-race.txt');
+      const filePath = path.join(TMP_DIR, 'enoent-race.txt');
       fs.writeFileSync(filePath, 'content');
 
       // Mock unlink to fail with ENOENT (race: file was deleted between lstat and unlink)
@@ -212,7 +212,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore ENOENT race in unlink with force (file disappears after lstat)', (done) => {
-      var filePath = path.join(TMP_DIR, 'enoent-race-force.txt');
+      const filePath = path.join(TMP_DIR, 'enoent-race-force.txt');
       fs.writeFileSync(filePath, 'content');
 
       // Mock unlink to fail with ENOENT (race: file was deleted between lstat and unlink)
@@ -231,7 +231,7 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRm ENOENT handling in rmdir', () => {
     it('should handle ENOENT in rmdir without force', (done) => {
-      var dirPath = path.join(TMP_DIR, 'enoent-rmdir');
+      const dirPath = path.join(TMP_DIR, 'enoent-rmdir');
       mkdirp.sync(dirPath);
 
       mockFs('rmdir', (_p: fs.PathLike, cb: fs.NoParamCallback) => {
@@ -248,7 +248,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore ENOENT in rmdir with force', (done) => {
-      var dirPath = path.join(TMP_DIR, 'enoent-rmdir-force');
+      const dirPath = path.join(TMP_DIR, 'enoent-rmdir-force');
       mkdirp.sync(dirPath);
 
       mockFs('rmdir', (_p: fs.PathLike, cb: fs.NoParamCallback) => {
@@ -266,11 +266,11 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRmSync retry on EBUSY', () => {
     it('should retry on EBUSY and succeed', () => {
-      var filePath = path.join(TMP_DIR, 'ebusy-sync.txt');
+      const filePath = path.join(TMP_DIR, 'ebusy-sync.txt');
       fs.writeFileSync(filePath, 'content');
 
-      var callCount = 0;
-      var originalUnlinkSync = fs.unlinkSync.bind(fs);
+      let callCount = 0;
+      const originalUnlinkSync = fs.unlinkSync.bind(fs);
       mockFs('unlinkSync', (p: fs.PathLike) => {
         callCount++;
         if (callCount === 1) {
@@ -285,7 +285,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should fail after max retries on EBUSY', () => {
-      var filePath = path.join(TMP_DIR, 'ebusy-sync-fail.txt');
+      const filePath = path.join(TMP_DIR, 'ebusy-sync-fail.txt');
       fs.writeFileSync(filePath, 'content');
 
       mockFs('unlinkSync', () => {
@@ -303,11 +303,11 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRmSync retry on rmdir ENOTEMPTY', () => {
     it('should retry rmdirSync on ENOTEMPTY and succeed', () => {
-      var dirPath = path.join(TMP_DIR, 'enotempty-sync');
+      const dirPath = path.join(TMP_DIR, 'enotempty-sync');
       mkdirp.sync(dirPath);
 
-      var callCount = 0;
-      var originalRmdirSync = fs.rmdirSync.bind(fs);
+      let callCount = 0;
+      const originalRmdirSync = fs.rmdirSync.bind(fs);
       mockFs('rmdirSync', (p: fs.PathLike) => {
         callCount++;
         if (callCount === 1) {
@@ -321,7 +321,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should fail after max retries on ENOTEMPTY', () => {
-      var dirPath = path.join(TMP_DIR, 'enotempty-sync-fail');
+      const dirPath = path.join(TMP_DIR, 'enotempty-sync-fail');
       mkdirp.sync(dirPath);
 
       mockFs('rmdirSync', () => {
@@ -339,7 +339,7 @@ describe('retry paths (with mocking)', () => {
 
   describe('fallbackRmSync ENOENT handling', () => {
     it('should handle ENOENT in rmdirSync without force', () => {
-      var dirPath = path.join(TMP_DIR, 'enoent-sync-rmdir');
+      const dirPath = path.join(TMP_DIR, 'enoent-sync-rmdir');
       mkdirp.sync(dirPath);
 
       mockFs('rmdirSync', () => {
@@ -355,7 +355,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore ENOENT in rmdirSync with force', () => {
-      var dirPath = path.join(TMP_DIR, 'enoent-sync-rmdir-force');
+      const dirPath = path.join(TMP_DIR, 'enoent-sync-rmdir-force');
       mkdirp.sync(dirPath);
 
       mockFs('rmdirSync', () => {
@@ -367,7 +367,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle ENOENT race in unlinkSync without force', () => {
-      var filePath = path.join(TMP_DIR, 'enoent-sync-race.txt');
+      const filePath = path.join(TMP_DIR, 'enoent-sync-race.txt');
       fs.writeFileSync(filePath, 'content');
 
       mockFs('unlinkSync', () => {
@@ -383,7 +383,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore ENOENT race in unlinkSync with force', () => {
-      var filePath = path.join(TMP_DIR, 'enoent-sync-race-force.txt');
+      const filePath = path.join(TMP_DIR, 'enoent-sync-race-force.txt');
       fs.writeFileSync(filePath, 'content');
 
       mockFs('unlinkSync', () => {
@@ -395,7 +395,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle ENOENT in readdirSync without force', () => {
-      var dirPath = path.join(TMP_DIR, 'enoent-readdir-sync');
+      const dirPath = path.join(TMP_DIR, 'enoent-readdir-sync');
       mkdirp.sync(dirPath);
 
       // Mock lstatSync to return directory stats
@@ -415,7 +415,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore ENOENT in readdirSync with force', () => {
-      var dirPath = path.join(TMP_DIR, 'enoent-readdir-sync-force');
+      const dirPath = path.join(TMP_DIR, 'enoent-readdir-sync-force');
       mkdirp.sync(dirPath);
 
       // Mock lstatSync to return directory stats
@@ -433,10 +433,10 @@ describe('retry paths (with mocking)', () => {
 
   describe('non-retryable errors', () => {
     it('should not retry on EACCES (async)', (done) => {
-      var filePath = path.join(TMP_DIR, 'eacces.txt');
+      const filePath = path.join(TMP_DIR, 'eacces.txt');
       fs.writeFileSync(filePath, 'content');
 
-      var callCount = 0;
+      let callCount = 0;
       mockFs('unlink', (_p: fs.PathLike, cb: fs.NoParamCallback) => {
         callCount++;
         process.nextTick(() => {
@@ -453,10 +453,10 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should not retry on EACCES (sync)', () => {
-      var filePath = path.join(TMP_DIR, 'eacces-sync.txt');
+      const filePath = path.join(TMP_DIR, 'eacces-sync.txt');
       fs.writeFileSync(filePath, 'content');
 
-      var callCount = 0;
+      let callCount = 0;
       mockFs('unlinkSync', () => {
         callCount++;
         throw createEACCESError();
@@ -474,7 +474,7 @@ describe('retry paths (with mocking)', () => {
 
   describe('recursive directory error paths', () => {
     it('should handle lstat error without force (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'lstat-error-async');
+      const dirPath = path.join(TMP_DIR, 'lstat-error-async');
       mkdirp.sync(dirPath);
 
       // Mock readdir to return an entry
@@ -495,7 +495,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle lstat error with force - skip entry (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'lstat-error-force-async');
+      const dirPath = path.join(TMP_DIR, 'lstat-error-force-async');
       mkdirp.sync(dirPath);
 
       // Mock readdir to return an entry
@@ -522,7 +522,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle unlinkWithRetry error in recursive without force (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'unlink-error-recursive');
+      const dirPath = path.join(TMP_DIR, 'unlink-error-recursive');
       mkdirp.sync(dirPath);
 
       // Mock readdir to return an entry
@@ -550,11 +550,11 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle readdir ENOENT without force (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'readdir-enoent-async');
+      const dirPath = path.join(TMP_DIR, 'readdir-enoent-async');
       mkdirp.sync(dirPath);
 
       // Keep original lstat so it sees the directory
-      var originalLstat = fs.lstat.bind(fs);
+      const originalLstat = fs.lstat.bind(fs);
       mockFs('lstat', originalLstat);
 
       // Mock readdir to fail with ENOENT
@@ -570,11 +570,11 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should ignore readdir ENOENT with force (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'readdir-enoent-force-async');
+      const dirPath = path.join(TMP_DIR, 'readdir-enoent-force-async');
       mkdirp.sync(dirPath);
 
       // Keep original lstat so it sees the directory
-      var originalLstat = fs.lstat.bind(fs);
+      const originalLstat = fs.lstat.bind(fs);
       mockFs('lstat', originalLstat);
 
       // Mock readdir to fail with ENOENT
@@ -589,11 +589,11 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle non-ENOENT readdir error (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'readdir-other-error-async');
+      const dirPath = path.join(TMP_DIR, 'readdir-other-error-async');
       mkdirp.sync(dirPath);
 
       // Keep original lstat so it sees the directory
-      var originalLstat = fs.lstat.bind(fs);
+      const originalLstat = fs.lstat.bind(fs);
       mockFs('lstat', originalLstat);
 
       // Mock readdir to fail with EACCES
@@ -611,7 +611,7 @@ describe('retry paths (with mocking)', () => {
 
   describe('sync recursive error paths', () => {
     it('should handle lstat error without force (sync)', () => {
-      var dirPath = path.join(TMP_DIR, 'lstat-error-sync');
+      const dirPath = path.join(TMP_DIR, 'lstat-error-sync');
       mkdirp.sync(dirPath);
 
       // Mock readdirSync to return an entry
@@ -631,7 +631,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle lstat error with force - continue (sync)', () => {
-      var dirPath = path.join(TMP_DIR, 'lstat-error-force-sync');
+      const dirPath = path.join(TMP_DIR, 'lstat-error-force-sync');
       mkdirp.sync(dirPath);
 
       // Mock readdirSync to return an entry
@@ -650,7 +650,7 @@ describe('retry paths (with mocking)', () => {
     });
 
     it('should handle unlinkSync error in recursive (sync)', () => {
-      var dirPath = path.join(TMP_DIR, 'unlink-error-sync');
+      const dirPath = path.join(TMP_DIR, 'unlink-error-sync');
       mkdirp.sync(dirPath);
 
       // Mock readdirSync to return an entry
@@ -675,10 +675,10 @@ describe('retry paths (with mocking)', () => {
 
   describe('hasError early return path', () => {
     it('should report first error and ignore subsequent callbacks (async)', (done) => {
-      var dirPath = path.join(TMP_DIR, 'haserror-path');
+      const dirPath = path.join(TMP_DIR, 'haserror-path');
       mkdirp.sync(dirPath);
 
-      var doneCallCount = 0;
+      let doneCallCount = 0;
 
       // Mock readdir to return two entries
       mockFs('readdir', (_p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, files: string[]) => void) => {
