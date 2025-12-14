@@ -3,6 +3,8 @@ import Pinkie from 'pinkie-promise';
 import fallbackRm from './fallback/rm.ts';
 import type { RmCallback, RmOptions } from './types.ts';
 
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+
 /**
  * Check if native fs.rm is available.
  * fs.rm was added in Node.js 14.14.0.
@@ -46,8 +48,6 @@ function rm(path: string, optionsOrCallback?: RmOptions | RmCallback, maybeCallb
   rmImpl(path, options, callback);
 }
 
-const IS_WINDOWS = process.platform === 'win32';
-
 /**
  * Internal implementation that handles native vs fallback.
  * On Windows, we need to handle symlinks specially because native fs.rm
@@ -57,7 +57,7 @@ function rmImpl(path: string, options: RmOptions | undefined, callback: RmCallba
   if (HAS_NATIVE_RM) {
     // On Windows, check if path is a symlink first to avoid native fs.rm bug
     // where it fails on broken symlinks (symlinks pointing to deleted targets)
-    if (IS_WINDOWS) {
+    if (isWindows) {
       fs.lstat(path, (lstatErr, stats) => {
         if (lstatErr) {
           // If lstat fails with ENOENT and force is set, succeed silently

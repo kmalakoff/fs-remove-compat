@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-const IS_WINDOWS = process.platform === 'win32';
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 
 /**
  * On Windows, when EPERM occurs during file removal, try chmod to 0o666
@@ -58,5 +58,5 @@ export function fixWinEPERMSync(path: string, originalError: NodeJS.ErrnoExcepti
  * Check if an error is EPERM on Windows and should be handled with chmod fix.
  */
 export function shouldFixEPERM(err: NodeJS.ErrnoException): boolean {
-  return IS_WINDOWS && err.code === 'EPERM';
+  return isWindows && err.code === 'EPERM';
 }

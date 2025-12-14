@@ -10,6 +10,7 @@ const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURL
 const ___dirname = path.dirname(___filename);
 
 const TMP_DIR = path.join(___dirname, '..', '..', '.tmp');
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 
 // Patch global Promise for Node 0.8 compatibility
 (() => {
@@ -230,7 +231,7 @@ describe('fs-remove-compat', () => {
   describe('symlinks', () => {
     // Skip on Windows due to symlink permissions
     beforeEach(function () {
-      if (process.platform === 'win32') return this.skip();
+      if (isWindows) return this.skip();
     });
 
     it('should remove a symlink without removing target', () => {
