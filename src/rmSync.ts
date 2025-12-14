@@ -8,7 +8,7 @@ import type { RmOptions } from './types.ts';
  */
 const HAS_NATIVE_RM_SYNC = typeof (fs as typeof fs & { rmSync?: unknown }).rmSync === 'function';
 
-const IS_WINDOWS = process.platform === 'win32';
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 
 /**
  * Remove a file or directory synchronously.
@@ -31,7 +31,7 @@ function rmSync(path: string, options?: RmOptions): void {
   if (HAS_NATIVE_RM_SYNC) {
     // On Windows, check if path is a symlink first to avoid native fs.rmSync bug
     // where it fails on broken symlinks (symlinks pointing to deleted targets)
-    if (IS_WINDOWS) {
+    if (isWindows) {
       try {
         const stats = fs.lstatSync(path);
         if (stats.isSymbolicLink()) {

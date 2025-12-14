@@ -4,6 +4,8 @@ import Pinkie from 'pinkie-promise';
 // Import retry utilities directly
 import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS, sleep } from '../../src/retry.ts';
 
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+
 // Patch global Promise for Node 0.8 compatibility
 (() => {
   if (typeof global === 'undefined') return;
@@ -23,7 +25,7 @@ describe('retry utilities', () => {
       assert.equal(SAFE_DEFAULTS.force, true);
       assert.equal(SAFE_DEFAULTS.retryDelay, 100);
       // maxRetries depends on platform
-      if (process.platform === 'win32') {
+      if (isWindows) {
         assert.equal(SAFE_DEFAULTS.maxRetries, 10);
       } else {
         assert.equal(SAFE_DEFAULTS.maxRetries, 0);

@@ -2,7 +2,7 @@ import fs from 'fs';
 import type { RmOptions } from '../types.ts';
 import { fixWinEPERMSync, shouldFixEPERM } from './fixWinEPERM.ts';
 
-const _IS_WINDOWS = process.platform === 'win32';
+const _isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 
 /**

@@ -4,7 +4,7 @@
 
 import Pinkie from 'pinkie-promise';
 
-const IS_WINDOWS = process.platform === 'win32';
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 const BACKOFF_FACTOR = 1.2;
 
@@ -15,7 +15,7 @@ const BACKOFF_FACTOR = 1.2;
 export const SAFE_DEFAULTS = {
   recursive: true,
   force: true,
-  maxRetries: IS_WINDOWS ? 10 : 0,
+  maxRetries: isWindows ? 10 : 0,
   retryDelay: 100,
 };
 

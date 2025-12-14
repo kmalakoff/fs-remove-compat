@@ -10,9 +10,9 @@ import { fixWinEPERM, fixWinEPERMSync, shouldFixEPERM } from '../../src/fallback
 
 const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURLToPath(import.meta.url);
 const ___dirname = path.dirname(___filename);
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 
 const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'eperm-test');
-const IS_WINDOWS = process.platform === 'win32';
 
 // Patch global Promise for Node 0.8 compatibility
 (() => {
@@ -62,7 +62,7 @@ describe('fixWinEPERM utilities', () => {
       const err = new Error('EPERM') as NodeJS.ErrnoException;
       err.code = 'EPERM';
 
-      if (IS_WINDOWS) {
+      if (isWindows) {
         assert.equal(shouldFixEPERM(err), true);
       } else {
         // On non-Windows, should always return false
