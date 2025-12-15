@@ -2,8 +2,6 @@
  * Retry utilities for safeRm/safeRmSync with exponential backoff.
  */
 
-import Pinkie from 'pinkie-promise';
-
 const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 const BACKOFF_FACTOR = 1.2;
@@ -44,11 +42,4 @@ export function busyWait(ms: number): void {
   while (Date.now() < end) {
     // Busy wait
   }
-}
-
-/**
- * Async sleep.
- */
-export function sleep(ms: number): Promise<void> {
-  return new Pinkie((resolve) => setTimeout(resolve, ms));
 }

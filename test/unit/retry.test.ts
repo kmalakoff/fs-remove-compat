@@ -1,22 +1,9 @@
 import assert from 'assert';
-import Pinkie from 'pinkie-promise';
 
 // Import retry utilities directly
-import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS, sleep } from '../../src/retry.ts';
+import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS } from '../../src/retry.ts';
 
 const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
-
-// Patch global Promise for Node 0.8 compatibility
-(() => {
-  if (typeof global === 'undefined') return;
-  const globalPromise = (global as typeof globalThis & { Promise?: typeof Promise }).Promise;
-  before(() => {
-    (global as typeof globalThis & { Promise: typeof Promise }).Promise = Pinkie;
-  });
-  after(() => {
-    (global as typeof globalThis & { Promise?: typeof Promise }).Promise = globalPromise;
-  });
-})();
 
 describe('retry utilities', () => {
   describe('SAFE_DEFAULTS', () => {
@@ -125,24 +112,6 @@ describe('retry utilities', () => {
     it('should handle 0ms', () => {
       const start = Date.now();
       busyWait(0);
-      const elapsed = Date.now() - start;
-      assert.ok(elapsed < 50, `Expected < 50ms, got ${elapsed}ms`);
-    });
-  });
-
-  describe('sleep', () => {
-    it('should return a promise that resolves after delay', async () => {
-      const start = Date.now();
-      await sleep(50);
-      const elapsed = Date.now() - start;
-      // Allow some tolerance
-      assert.ok(elapsed >= 45, `Expected >= 45ms, got ${elapsed}ms`);
-      assert.ok(elapsed < 100, `Expected < 100ms, got ${elapsed}ms`);
-    });
-
-    it('should handle 0ms', async () => {
-      const start = Date.now();
-      await sleep(0);
       const elapsed = Date.now() - start;
       assert.ok(elapsed < 50, `Expected < 50ms, got ${elapsed}ms`);
     });

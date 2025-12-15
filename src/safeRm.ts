@@ -1,8 +1,7 @@
 import fs from 'fs';
-import Pinkie from 'pinkie-promise';
 import { fixWinEPERM, shouldFixEPERM } from './fallback/fixWinEPERM.ts';
 import fallbackRm from './fallback/rm.ts';
-import { getBackoffDelay, isRetryableError, SAFE_DEFAULTS, sleep } from './retry.ts';
+import { getBackoffDelay, isRetryableError, SAFE_DEFAULTS } from './retry.ts';
 import type { RmCallback, RmOptions } from './types.ts';
 
 /**
@@ -23,78 +22,12 @@ const HAS_NATIVE_RM = typeof (fs as typeof fs & { rm?: unknown }).rm === 'functi
  */
 function safeRm(path: string, callback: RmCallback): void;
 function safeRm(path: string, options: RmOptions, callback: RmCallback): void;
-function safeRm(path: string, options?: RmOptions): Promise<void>;
-function safeRm(path: string, optionsOrCallback?: RmOptions | RmCallback, maybeCallback?: RmCallback): void | Promise<void> {
+function safeRm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCallback?: RmCallback): void {
   // Parse arguments
-  let options: RmOptions | undefined;
-  let callback: RmCallback | undefined;
-
   if (typeof optionsOrCallback === 'function') {
-    callback = optionsOrCallback;
+    safeRmImpl(path, undefined, 0, optionsOrCallback);
   } else {
-    options = optionsOrCallback;
-    callback = maybeCallback;
-  }
-
-  // Promise style
-  if (typeof callback !== 'function') {
-    return safeRmPromise(path, options);
-  }
-
-  // Callback style
-  safeRmImpl(path, options, 0, callback);
-}
-
-/**
- * Promise-based implementation with retry.
- */
-async function safeRmPromise(path: string, options?: RmOptions): Promise<void> {
-  const opts = {
-    recursive: options?.recursive ?? SAFE_DEFAULTS.recursive,
-    force: options?.force ?? SAFE_DEFAULTS.force,
-    maxRetries: options?.maxRetries ?? SAFE_DEFAULTS.maxRetries,
-    retryDelay: options?.retryDelay ?? SAFE_DEFAULTS.retryDelay,
-  };
-
-  for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
-    try {
-      await new Pinkie<void>((resolve, reject) => {
-        rmOnce(path, { ...opts, maxRetries: 0 }, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-      return; // Success
-    } catch (err) {
-      // Handle ENOENT with force
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT' && opts.force) {
-        return;
-      }
-
-      // Try EPERM fix on Windows
-      if (shouldFixEPERM(err as NodeJS.ErrnoException)) {
-        try {
-          await new Pinkie<void>((resolve, reject) => {
-            fixWinEPERM(path, err as NodeJS.ErrnoException, (fixErr) => {
-              if (fixErr) reject(fixErr);
-              else resolve();
-            });
-          });
-          return; // Success after chmod fix
-        } catch (_fixErr) {
-          // Fall through to retry
-        }
-      }
-
-      // Check if we should retry
-      if (!isRetryableError(err) || attempt >= opts.maxRetries) {
-        throw err;
-      }
-
-      // Exponential backoff
-      const delay = getBackoffDelay(opts.retryDelay, attempt);
-      await sleep(delay);
-    }
+    safeRmImpl(path, optionsOrCallback, 0, maybeCallback as RmCallback);
   }
 }
 
