@@ -1,5 +1,4 @@
 import fs from 'fs';
-import Pinkie from 'pinkie-promise';
 import fallbackRm from './fallback/rm.ts';
 import type { RmCallback, RmOptions } from './types.ts';
 
@@ -17,35 +16,16 @@ const HAS_NATIVE_RM = typeof (fs as typeof fs & { rm?: unknown }).rm === 'functi
  * This is a ponyfill that exactly matches Node.js fs.rm behavior:
  * - Uses native fs.rm when available (Node 14.14+)
  * - Falls back to custom implementation for older Node versions
- * - Supports both callback and Promise styles
  */
 function rm(path: string, callback: RmCallback): void;
 function rm(path: string, options: RmOptions, callback: RmCallback): void;
-function rm(path: string, options?: RmOptions): Promise<void>;
-function rm(path: string, optionsOrCallback?: RmOptions | RmCallback, maybeCallback?: RmCallback): void | Promise<void> {
+function rm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCallback?: RmCallback): void {
   // Parse arguments
-  let options: RmOptions | undefined;
-  let callback: RmCallback | undefined;
-
   if (typeof optionsOrCallback === 'function') {
-    callback = optionsOrCallback;
+    rmImpl(path, undefined, optionsOrCallback);
   } else {
-    options = optionsOrCallback;
-    callback = maybeCallback;
+    rmImpl(path, optionsOrCallback, maybeCallback as RmCallback);
   }
-
-  // Promise style
-  if (typeof callback !== 'function') {
-    return new Pinkie((resolve, reject) => {
-      rmImpl(path, options, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  }
-
-  // Callback style
-  rmImpl(path, options, callback);
 }
 
 /**

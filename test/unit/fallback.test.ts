@@ -2,7 +2,6 @@ import assert from 'assert';
 import fs from 'fs';
 import mkdirp from 'mkdirp-classic';
 import path from 'path';
-import Pinkie from 'pinkie-promise';
 import url from 'url';
 
 // Import fallback implementations directly
@@ -13,18 +12,6 @@ const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURL
 const ___dirname = path.dirname(___filename);
 
 const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'fallback-test');
-
-// Patch global Promise for Node 0.8 compatibility
-(() => {
-  if (typeof global === 'undefined') return;
-  const globalPromise = (global as typeof globalThis & { Promise?: typeof Promise }).Promise;
-  before(() => {
-    (global as typeof globalThis & { Promise: typeof Promise }).Promise = Pinkie;
-  });
-  after(() => {
-    (global as typeof globalThis & { Promise?: typeof Promise }).Promise = globalPromise;
-  });
-})();
 
 function cleanTmp(): void {
   try {

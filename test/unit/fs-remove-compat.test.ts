@@ -3,7 +3,6 @@ import fs from 'fs';
 import { rm, rmSync, safeRm, safeRmSync } from 'fs-remove-compat';
 import mkdirp from 'mkdirp-classic';
 import path from 'path';
-import Pinkie from 'pinkie-promise';
 import url from 'url';
 
 const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURLToPath(import.meta.url);
@@ -11,18 +10,6 @@ const ___dirname = path.dirname(___filename);
 
 const TMP_DIR = path.join(___dirname, '..', '..', '.tmp');
 const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
-
-// Patch global Promise for Node 0.8 compatibility
-(() => {
-  if (typeof global === 'undefined') return;
-  const globalPromise = (global as typeof globalThis & { Promise?: typeof Promise }).Promise;
-  before(() => {
-    (global as typeof globalThis & { Promise: typeof Promise }).Promise = Pinkie;
-  });
-  after(() => {
-    (global as typeof globalThis & { Promise?: typeof Promise }).Promise = globalPromise;
-  });
-})();
 
 function cleanTmp(): void {
   try {
@@ -118,14 +105,6 @@ describe('fs-remove-compat', () => {
       });
     });
 
-    it('should remove a file (promise style)', async () => {
-      const filePath = path.join(TMP_DIR, 'test-file-promise.txt');
-      fs.writeFileSync(filePath, 'content');
-
-      await rm(filePath);
-      assert.ok(!fs.existsSync(filePath), 'file should not exist after removal');
-    });
-
     it('should error when file does not exist (callback)', (done) => {
       const filePath = path.join(TMP_DIR, 'nonexistent.txt');
 
@@ -136,32 +115,26 @@ describe('fs-remove-compat', () => {
       });
     });
 
-    it('should error when file does not exist (promise)', async () => {
+    it('should not error with force option (callback)', (done) => {
       const filePath = path.join(TMP_DIR, 'nonexistent.txt');
 
-      try {
-        await rm(filePath);
-        assert.fail('should have thrown');
-      } catch (err: unknown) {
-        assert.equal((err as NodeJS.ErrnoException).code, 'ENOENT');
-      }
+      rm(filePath, { force: true }, (err) => {
+        assert.ok(!err);
+        done();
+      });
     });
 
-    it('should not error with force option (promise)', async () => {
-      const filePath = path.join(TMP_DIR, 'nonexistent.txt');
-
-      // Should not throw
-      await rm(filePath, { force: true });
-    });
-
-    it('should remove directory recursively (promise)', async () => {
-      const dirPath = path.join(TMP_DIR, 'recursive-promise');
+    it('should remove directory recursively (callback)', (done) => {
+      const dirPath = path.join(TMP_DIR, 'recursive-cb');
       mkdirp.sync(path.join(dirPath, 'subdir'));
       fs.writeFileSync(path.join(dirPath, 'file1.txt'), 'content1');
       fs.writeFileSync(path.join(dirPath, 'subdir', 'file2.txt'), 'content2');
 
-      await rm(dirPath, { recursive: true });
-      assert.ok(!fs.existsSync(dirPath), 'dir should not exist after removal');
+      rm(dirPath, { recursive: true }, (err) => {
+        if (err) return done(err);
+        assert.ok(!fs.existsSync(dirPath), 'dir should not exist after removal');
+        done();
+      });
     });
   });
 
@@ -203,28 +176,25 @@ describe('fs-remove-compat', () => {
       });
     });
 
-    it('should remove a file (promise style)', async () => {
-      const filePath = path.join(TMP_DIR, 'safe-file-promise.txt');
-      fs.writeFileSync(filePath, 'content');
-
-      await safeRm(filePath);
-      assert.ok(!fs.existsSync(filePath), 'file should not exist after removal');
-    });
-
-    it('should remove directory recursively (promise)', async () => {
-      const dirPath = path.join(TMP_DIR, 'safe-recursive-promise');
+    it('should remove directory recursively (callback)', (done) => {
+      const dirPath = path.join(TMP_DIR, 'safe-recursive-cb');
       mkdirp.sync(path.join(dirPath, 'subdir'));
       fs.writeFileSync(path.join(dirPath, 'file.txt'), 'content');
 
-      await safeRm(dirPath, { recursive: true });
-      assert.ok(!fs.existsSync(dirPath), 'dir should not exist after removal');
+      safeRm(dirPath, { recursive: true }, (err) => {
+        if (err) return done(err);
+        assert.ok(!fs.existsSync(dirPath), 'dir should not exist after removal');
+        done();
+      });
     });
 
-    it('should handle force option (promise)', async () => {
-      const filePath = path.join(TMP_DIR, 'nonexistent-safe-promise.txt');
+    it('should handle force option (callback)', (done) => {
+      const filePath = path.join(TMP_DIR, 'nonexistent-safe-cb.txt');
 
-      // Should not throw
-      await safeRm(filePath, { force: true });
+      safeRm(filePath, { force: true }, (err) => {
+        assert.ok(!err);
+        done();
+      });
     });
   });
 

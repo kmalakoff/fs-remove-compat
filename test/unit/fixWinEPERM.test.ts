@@ -2,7 +2,6 @@ import assert from 'assert';
 import fs from 'fs';
 import mkdirp from 'mkdirp-classic';
 import path from 'path';
-import Pinkie from 'pinkie-promise';
 import url from 'url';
 
 // Import fixWinEPERM utilities directly
@@ -13,18 +12,6 @@ const ___dirname = path.dirname(___filename);
 const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
 
 const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'eperm-test');
-
-// Patch global Promise for Node 0.8 compatibility
-(() => {
-  if (typeof global === 'undefined') return;
-  const globalPromise = (global as typeof globalThis & { Promise?: typeof Promise }).Promise;
-  before(() => {
-    (global as typeof globalThis & { Promise: typeof Promise }).Promise = Pinkie;
-  });
-  after(() => {
-    (global as typeof globalThis & { Promise?: typeof Promise }).Promise = globalPromise;
-  });
-})();
 
 function cleanTmp(): void {
   try {
