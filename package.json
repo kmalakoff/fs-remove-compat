@@ -43,11 +43,10 @@
     "test:engines": "nvu engines tsds test:node --no-timeouts",
     "version": "tsds version"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/mocha": "*",
     "@types/node": "*",
-    "mkdirp-classic": "^0.5.3",
+    "mkdirp-classic": ">=0.5.3",
     "node-version-use": "*",
     "ts-dev-stack": "*",
     "tsds-config": "*"
