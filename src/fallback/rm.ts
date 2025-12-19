@@ -7,7 +7,7 @@ const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 /**
  * Remove a file asynchronously with retry logic.
  */
-function unlinkWithRetry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
+function unlinkWithRetry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback) {
   fs.unlink(path, (err) => {
     if (!err) return callback();
 
@@ -33,7 +33,7 @@ function unlinkWithRetry(path: string, options: Required<RmOptions>, attempt: nu
 /**
  * Remove a directory asynchronously with retry logic.
  */
-function rmdirWithRetry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
+function rmdirWithRetry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback) {
   fs.rmdir(path, (err) => {
     if (!err) return callback();
 
@@ -63,7 +63,7 @@ function retryOrFail(path: string, options: Required<RmOptions>, attempt: number
 /**
  * Remove directory contents recursively.
  */
-function rmdirRecursive(path: string, options: Required<RmOptions>, callback: RmCallback): void {
+function rmdirRecursive(path: string, options: Required<RmOptions>, callback: RmCallback) {
   fs.readdir(path, (readErr, entries) => {
     if (readErr) {
       if (readErr.code === 'ENOENT' && options.force) return callback();

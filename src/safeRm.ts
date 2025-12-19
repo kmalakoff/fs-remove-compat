@@ -34,7 +34,7 @@ function safeRm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCa
 /**
  * Callback-based implementation with retry.
  */
-function safeRmImpl(path: string, options: RmOptions | undefined, attempt: number, callback: RmCallback): void {
+function safeRmImpl(path: string, options: RmOptions | undefined, attempt: number, callback: RmCallback) {
   const opts = {
     recursive: options?.recursive ?? SAFE_DEFAULTS.recursive,
     force: options?.force ?? SAFE_DEFAULTS.force,
@@ -66,7 +66,7 @@ function safeRmImpl(path: string, options: RmOptions | undefined, attempt: numbe
 /**
  * Retry helper for callback style.
  */
-function retryIfNeeded(path: string, options: RmOptions | undefined, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback): void {
+function retryIfNeeded(path: string, options: RmOptions | undefined, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback) {
   const maxRetries = options?.maxRetries ?? SAFE_DEFAULTS.maxRetries;
   const retryDelay = options?.retryDelay ?? SAFE_DEFAULTS.retryDelay;
 
@@ -84,7 +84,7 @@ function retryIfNeeded(path: string, options: RmOptions | undefined, attempt: nu
 /**
  * Single rm attempt (no retry).
  */
-function rmOnce(path: string, options: RmOptions, callback: RmCallback): void {
+function rmOnce(path: string, options: RmOptions, callback: RmCallback) {
   if (HAS_NATIVE_RM) {
     (fs as typeof fs & { rm: (path: string, options: RmOptions, callback: RmCallback) => void }).rm(path, options, callback);
   } else {

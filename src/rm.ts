@@ -33,7 +33,7 @@ function rm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCallba
  * On Windows, we need to handle symlinks specially because native fs.rm
  * can fail with ENOENT when calling stat on broken symlinks.
  */
-function rmImpl(path: string, options: RmOptions | undefined, callback: RmCallback): void {
+function rmImpl(path: string, options: RmOptions | undefined, callback: RmCallback) {
   if (HAS_NATIVE_RM) {
     // On Windows, check if path is a symlink first to avoid native fs.rm bug
     // where it fails on broken symlinks (symlinks pointing to deleted targets)
