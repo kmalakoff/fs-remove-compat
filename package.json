@@ -46,7 +46,7 @@
   "devDependencies": {
     "@types/mocha": "*",
     "@types/node": "*",
-    "mkdirp-classic": ">=0.5.3",
+    "mkdirp-classic": "^0.5.2",
     "node-version-use": "*",
     "ts-dev-stack": "*",
     "tsds-config": "*"
