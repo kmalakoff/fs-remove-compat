@@ -2,7 +2,7 @@
  * Retry utilities for safeRm/safeRmSync with exponential backoff.
  */
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 const BACKOFF_FACTOR = 1.2;
 

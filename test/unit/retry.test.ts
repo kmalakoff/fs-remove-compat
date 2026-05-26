@@ -3,7 +3,7 @@ import assert from 'assert';
 // Import retry utilities directly
 import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS } from '../../src/retry.ts';
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 
 describe('retry utilities', () => {
   describe('SAFE_DEFAULTS', () => {

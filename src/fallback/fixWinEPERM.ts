@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 
 /**
  * On Windows, when EPERM occurs during file removal, try chmod to 0o666

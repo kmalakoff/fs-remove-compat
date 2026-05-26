@@ -9,7 +9,7 @@ import { fixWinEPERM, fixWinEPERMSync, shouldFixEPERM } from '../../src/fallback
 
 const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURLToPath(import.meta.url);
 const ___dirname = path.dirname(___filename);
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 
 const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'eperm-test');
 

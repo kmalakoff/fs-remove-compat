@@ -2,7 +2,7 @@ import fs from 'fs';
 import fallbackRm from './fallback/rm.ts';
 import type { RmCallback, RmOptions } from './types.ts';
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE);
+const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 
 /**
  * Check if native fs.rm is available.

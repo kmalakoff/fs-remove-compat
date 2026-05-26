@@ -16,7 +16,7 @@ const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'retry-test');
 // Simple monkey-patching utilities for Node 0.8 compatibility (no sinon)
 let originalFunctions: { [key: string]: unknown } = {};
 
-function mockFs(name: string, mockFn: (...args: unknown[]) => unknown): void {
+function mockFs(name: string, mockFn: (...args: never[]) => unknown): void {
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic property access on fs module
   originalFunctions[name] = (fs as any)[name];
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic property access on fs module
