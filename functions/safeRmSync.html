@@ -18,12 +18,12 @@
 <div class="tsd-comment tsd-typography"><p>Remove a file or directory synchronously with Windows-friendly defaults.</p>
 <p>This is NOT a strict ponyfill - it provides enhanced behavior:</p>
 <ul>
-<li>Default maxRetries: 10 on Windows, 0 on POSIX</li>
-<li>Exponential backoff (1.2 factor) instead of linear</li>
+<li>Default recursive: true, force: true</li>
+<li>Default maxRetries: 10 on Windows, 0 on POSIX, with linear backoff per entry</li>
 <li>EPERM chmod fix before retry on Windows</li>
 </ul>
-<p>Use this for CI/test cleanup where Windows file locking is common.
-For strict Node.js fs.rmSync compatibility, use rmSync instead.</p>
+<p>Always uses the fallback walk so retries are bounded per entry on every Node version.
+Use this for CI/test cleanup. For strict fs.rmSync compatibility, use rmSync.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
@@ -36,7 +36,7 @@ For strict Node.js fs.rmSync compatibility, use rmSync instead.</p>
 </div></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/kmalakoff/fs-remove-compat/blob/7078e0544fd2b48b4d9fac48a675d632e599e4ff/src/safeRmSync.ts#L26">safeRmSync.ts:26</a></li></ul></aside></div></li></ul></section></div>
+<li>Defined in <a href="https://github.com/kmalakoff/fs-remove-compat/blob/8f670ee7dbd1cc76f826fef813de66071fedcdd8/src/safeRmSync.ts#L19">safeRmSync.ts:19</a></li></ul></aside></div></li></ul></section></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
