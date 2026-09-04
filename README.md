@@ -48,9 +48,11 @@ await rm('/path/to/dir', { recursive: true, force: true });
 import { safeRm, safeRmSync } from 'fs-remove-compat';
 
 // safeRm/safeRmSync have Windows-friendly defaults:
+// - recursive: true, force: true
 // - maxRetries: 10 on Windows, 0 on POSIX
-// - Exponential backoff (1.2 factor)
-// - EPERM chmod fix for locked files
+// - Linear backoff per entry (retryDelay * attempt), the schedule Node.js fs.rm uses
+// - EPERM chmod fix for read-only files; EPERM from lstat is retried so a file whose
+//   delete is still pending (a handle another process holds) is waited out
 
 // Use for CI/test cleanup where Windows file locking is common
 safeRmSync('/path/to/dir', { recursive: true, force: true });
@@ -65,8 +67,8 @@ await safeRm('/path/to/dir', { recursive: true, force: true });
 interface RmOptions {
   recursive?: boolean;   // Remove directories recursively. Default: false
   force?: boolean;       // Ignore ENOENT errors. Default: false
-  maxRetries?: number;   // Retries on EBUSY/EPERM/etc. Default: 0 (or 10 for safe*)
-  retryDelay?: number;   // Delay between retries in ms. Default: 100
+  maxRetries?: number;   // Retries per entry on EBUSY/EPERM/etc. Default: 0 (or 10 on Windows for safe*)
+  retryDelay?: number;   // Base delay between retries in ms, grows linearly. Default: 100
 }
 ```
 
@@ -119,7 +121,7 @@ The codemod automatically chooses the right function based on file location:
 
 1. **Replace rimraf2** without the `{ disableGlob: true }` boilerplate
 2. **Cross-platform** with automatic Windows retry logic
-3. **Future-proof** - uses native `fs.rm` when available (Node 14.14+)
+3. **Future-proof** - `rm`/`rmSync` use native `fs.rm` when available (Node 14.14+); `safeRm`/`safeRmSync` use one walk on every version so retries stay bounded per entry
 4. **Backwards compatible** - works on Node 0.8+
 
 ## License

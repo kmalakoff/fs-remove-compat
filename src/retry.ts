@@ -1,10 +1,11 @@
+import type { RmOptions } from './types.ts';
+
 /**
- * Retry utilities for safeRm/safeRmSync with exponential backoff.
+ * Retry utilities shared by the fallback walk and the safe variants.
  */
 
 const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
-const BACKOFF_FACTOR = 1.2;
 
 /**
  * Default options for safe variants.
@@ -18,6 +19,18 @@ export const SAFE_DEFAULTS = {
 };
 
 /**
+ * Fill missing options from SAFE_DEFAULTS.
+ */
+export function withSafeDefaults(options?: RmOptions): Required<RmOptions> {
+  return {
+    recursive: options?.recursive ?? SAFE_DEFAULTS.recursive,
+    force: options?.force ?? SAFE_DEFAULTS.force,
+    maxRetries: options?.maxRetries ?? SAFE_DEFAULTS.maxRetries,
+    retryDelay: options?.retryDelay ?? SAFE_DEFAULTS.retryDelay,
+  };
+}
+
+/**
  * Check if an error is retryable.
  */
 export function isRetryableError(err: unknown): boolean {
@@ -27,11 +40,10 @@ export function isRetryableError(err: unknown): boolean {
 }
 
 /**
- * Calculate exponential backoff delay.
- * delay * (factor ^ attempt)
+ * Delay before the next attempt. Linear backoff matching Node.js fs.rm: retryDelay * (attempt + 1).
  */
-export function getBackoffDelay(baseDelay: number, attempt: number): number {
-  return Math.floor(baseDelay * BACKOFF_FACTOR ** attempt);
+export function getRetryDelay(retryDelay: number, attempt: number): number {
+  return retryDelay * (attempt + 1);
 }
 
 /**

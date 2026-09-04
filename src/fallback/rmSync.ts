@@ -1,85 +1,53 @@
 import fs from 'fs';
+import { join } from 'path';
+import { busyWait, getRetryDelay, isRetryableError } from '../retry.ts';
 import type { RmOptions } from '../types.ts';
+import { createEISDIR } from './errors.ts';
 import { fixWinEPERMSync, shouldFixEPERM } from './fixWinEPERM.ts';
 
-const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
-
 /**
- * Busy-wait for sync retry delay.
+ * Run one operation with retries. Returns undefined when the entry is gone (ENOENT with force,
+ * or removed by the Windows EPERM fix). Retries never re-walk a directory.
  */
-function busyWait(ms: number): void {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    // Busy wait
-  }
-}
-
-/**
- * Remove a file synchronously.
- */
-function unlinkSync(path: string, options: Required<RmOptions>): void {
-  for (let attempt = 0; attempt <= options.maxRetries; attempt++) {
+function retrySync<T>(path: string, options: Required<RmOptions>, op: () => T): T | undefined {
+  for (let attempt = 0; ; attempt++) {
     try {
-      fs.unlinkSync(path);
-      return;
+      return op();
     } catch (err) {
       const error = err as NodeJS.ErrnoException;
-
-      // Handle ENOENT
       if (error.code === 'ENOENT') {
-        if (options.force) return;
+        if (options.force) return undefined;
         throw error;
       }
-
-      // Try EPERM fix on Windows
       if (shouldFixEPERM(error)) {
         try {
           fixWinEPERMSync(path, error);
-          return;
+          return undefined;
         } catch (_fixErr) {
-          // Fall through to retry logic
+          // The fix rethrows the original error when it cannot help; back off and retry below.
         }
       }
-
-      // Check if retryable
-      if (RETRYABLE_CODES.indexOf(error.code || '') === -1 || attempt >= options.maxRetries) {
-        throw error;
-      }
-
-      // Wait before retry (linear backoff like Node.js)
-      busyWait(options.retryDelay);
+      if (!isRetryableError(error) || attempt >= options.maxRetries) throw error;
+      busyWait(getRetryDelay(options.retryDelay, attempt));
     }
   }
 }
 
 /**
- * Remove a directory synchronously (non-recursive).
+ * Remove one entry. lstat gets the same retry as unlink: Windows reports a file whose
+ * delete is pending as EPERM until the last handle on it closes.
  */
-function rmdirSync(path: string, options: Required<RmOptions>): void {
-  for (let attempt = 0; attempt <= options.maxRetries; attempt++) {
-    try {
-      fs.rmdirSync(path);
-      return;
-    } catch (err) {
-      const error = err as NodeJS.ErrnoException;
-
-      if (error.code === 'ENOENT') {
-        if (options.force) return;
-        throw error;
-      }
-
-      if (RETRYABLE_CODES.indexOf(error.code || '') === -1 || attempt >= options.maxRetries) {
-        throw error;
-      }
-
-      busyWait(options.retryDelay);
-    }
+function removeEntrySync(path: string, options: Required<RmOptions>): void {
+  const stats = retrySync(path, options, () => fs.lstatSync(path));
+  if (!stats) return;
+  if (!stats.isDirectory()) {
+    retrySync(path, options, () => fs.unlinkSync(path));
+    return;
   }
+  if (!options.recursive) throw createEISDIR(path);
+  rmdirRecursiveSync(path, options);
 }
 
-/**
- * Remove directory contents recursively.
- */
 function rmdirRecursiveSync(path: string, options: Required<RmOptions>): void {
   let entries: string[];
   try {
@@ -91,26 +59,9 @@ function rmdirRecursiveSync(path: string, options: Required<RmOptions>): void {
   }
 
   for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const entryPath = `${path}/${entry}`;
-    let stats: fs.Stats;
-    try {
-      stats = fs.lstatSync(entryPath);
-    } catch (err) {
-      const error = err as NodeJS.ErrnoException;
-      if (error.code === 'ENOENT' && options.force) continue;
-      throw error;
-    }
-
-    if (stats.isDirectory()) {
-      rmdirRecursiveSync(entryPath, options);
-    } else {
-      unlinkSync(entryPath, options);
-    }
+    removeEntrySync(join(path, entries[i]), options);
   }
-
-  // Now remove the directory itself
-  rmdirSync(path, options);
+  retrySync(path, options, () => fs.rmdirSync(path));
 }
 
 /**
@@ -124,29 +75,5 @@ export default function fallbackRmSync(path: string, options?: RmOptions): void 
     maxRetries: options?.maxRetries ?? 0,
     retryDelay: options?.retryDelay ?? 100,
   };
-
-  let stats: fs.Stats;
-  try {
-    stats = fs.lstatSync(path);
-  } catch (err) {
-    const error = err as NodeJS.ErrnoException;
-    if (error.code === 'ENOENT') {
-      if (opts.force) return;
-      throw error;
-    }
-    throw error;
-  }
-
-  if (stats.isDirectory()) {
-    if (!opts.recursive) {
-      const err = new Error(`EISDIR: illegal operation on a directory, rm '${path}'`) as NodeJS.ErrnoException;
-      err.code = 'EISDIR';
-      err.syscall = 'rm';
-      err.path = path;
-      throw err;
-    }
-    rmdirRecursiveSync(path, opts);
-  } else {
-    unlinkSync(path, opts);
-  }
+  removeEntrySync(path, opts);
 }

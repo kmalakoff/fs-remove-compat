@@ -83,6 +83,13 @@ function createEACCESError(): NodeJS.ErrnoException {
   return err;
 }
 
+function createEPERMError(syscall: string): NodeJS.ErrnoException {
+  const err = new Error('EPERM: operation not permitted') as NodeJS.ErrnoException;
+  err.code = 'EPERM';
+  err.syscall = syscall;
+  return err;
+}
+
 describe('retry paths (with mocking)', () => {
   beforeEach(setupTmp);
   afterEach(restoreAllFs);
@@ -691,6 +698,170 @@ describe('retry paths (with mocking)', () => {
             done();
           }, 50);
         }
+      });
+    });
+  });
+  describe('lstat retry on a delete-pending entry', () => {
+    // Windows reports a file whose delete is pending as EPERM from lstat until the last handle closes, then ENOENT.
+    it('should retry lstat on EPERM and succeed once the entry is gone (async)', (done) => {
+      const dirPath = path.join(TMP_DIR, 'lstat-eperm-async');
+      mkdirp.sync(dirPath);
+
+      mockFs('readdir', (_p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, files: string[]) => void) => {
+        cb(null, ['pending.exe']);
+      });
+      mockFs('chmod', (_p: fs.PathLike, _mode: fs.Mode, cb: fs.NoParamCallback) => {
+        process.nextTick(() => cb(createEPERMError('chmod')));
+      });
+
+      let lstatCount = 0;
+      const originalLstat = fs.lstat.bind(fs);
+      mockFs('lstat', (p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void) => {
+        if (p.toString() === dirPath) return originalLstat(p, cb);
+        lstatCount++;
+        process.nextTick(() => cb(lstatCount < 3 ? createEPERMError('lstat') : createENOENTError(), undefined as unknown as fs.Stats));
+      });
+      mockFs('rmdir', (_p: fs.PathLike, cb: fs.NoParamCallback) => {
+        process.nextTick(() => cb(null));
+      });
+
+      fallbackRm(dirPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 1 }, (err) => {
+        if (err) return done(err);
+        assert.equal(lstatCount, 3);
+        done();
+      });
+    });
+
+    it('should fail after max retries when lstat keeps returning EPERM (async)', (done) => {
+      const dirPath = path.join(TMP_DIR, 'lstat-eperm-fail-async');
+      mkdirp.sync(dirPath);
+
+      mockFs('readdir', (_p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, files: string[]) => void) => {
+        cb(null, ['pending.exe']);
+      });
+      mockFs('chmod', (_p: fs.PathLike, _mode: fs.Mode, cb: fs.NoParamCallback) => {
+        process.nextTick(() => cb(createEPERMError('chmod')));
+      });
+
+      let lstatCount = 0;
+      const originalLstat = fs.lstat.bind(fs);
+      mockFs('lstat', (p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void) => {
+        if (p.toString() === dirPath) return originalLstat(p, cb);
+        lstatCount++;
+        process.nextTick(() => cb(createEPERMError('lstat'), undefined as unknown as fs.Stats));
+      });
+
+      fallbackRm(dirPath, { recursive: true, force: true, maxRetries: 2, retryDelay: 1 }, (err) => {
+        assert.ok(err);
+        assert.equal(err?.code, 'EPERM');
+        assert.equal(err?.syscall, 'lstat');
+        assert.equal(lstatCount, 3);
+        done();
+      });
+    });
+
+    it('should retry lstatSync on EPERM and succeed once the entry is gone (sync)', () => {
+      const dirPath = path.join(TMP_DIR, 'lstat-eperm-sync');
+      mkdirp.sync(dirPath);
+
+      mockFs('readdirSync', () => ['pending.exe']);
+      mockFs('chmodSync', () => {
+        throw createEPERMError('chmod');
+      });
+
+      let lstatCount = 0;
+      const originalLstatSync = fs.lstatSync.bind(fs);
+      mockFs('lstatSync', (p: fs.PathLike) => {
+        if (p.toString() === dirPath) return originalLstatSync(p);
+        lstatCount++;
+        throw lstatCount < 3 ? createEPERMError('lstat') : createENOENTError();
+      });
+      mockFs('rmdirSync', () => undefined);
+
+      fallbackRmSync(dirPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 1 });
+      assert.equal(lstatCount, 3);
+    });
+
+    it('should fail after max retries when lstatSync keeps returning EPERM (sync)', () => {
+      const dirPath = path.join(TMP_DIR, 'lstat-eperm-fail-sync');
+      mkdirp.sync(dirPath);
+
+      mockFs('readdirSync', () => ['pending.exe']);
+      mockFs('chmodSync', () => {
+        throw createEPERMError('chmod');
+      });
+
+      let lstatCount = 0;
+      const originalLstatSync = fs.lstatSync.bind(fs);
+      mockFs('lstatSync', (p: fs.PathLike) => {
+        if (p.toString() === dirPath) return originalLstatSync(p);
+        lstatCount++;
+        throw createEPERMError('lstat');
+      });
+
+      try {
+        fallbackRmSync(dirPath, { recursive: true, force: true, maxRetries: 2, retryDelay: 1 });
+        assert.fail('should have thrown');
+      } catch (err: unknown) {
+        assert.equal((err as NodeJS.ErrnoException).code, 'EPERM');
+        assert.equal(lstatCount, 3);
+      }
+    });
+  });
+
+  describe('retry budget is per entry', () => {
+    it('should not re-walk the tree when a nested entry fails (async)', (done) => {
+      const dirPath = path.join(TMP_DIR, 'no-rewalk');
+      mkdirp.sync(path.join(dirPath, 'nested'));
+
+      let readdirCount = 0;
+      const originalReaddir = fs.readdir.bind(fs);
+      mockFs('readdir', (p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, files: string[]) => void) => {
+        readdirCount++;
+        if (p.toString() === path.join(dirPath, 'nested')) return cb(null, ['stuck.txt']);
+        originalReaddir(p, cb);
+      });
+      const originalLstat = fs.lstat.bind(fs);
+      mockFs('lstat', (p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void) => {
+        if (p.toString() !== path.join(dirPath, 'nested', 'stuck.txt')) return originalLstat(p, cb);
+        process.nextTick(() => cb(createEACCESError(), undefined as unknown as fs.Stats));
+      });
+
+      fallbackRm(dirPath, { recursive: true, maxRetries: 3, retryDelay: 1 }, (err) => {
+        assert.equal(err?.code, 'EACCES');
+        assert.equal(readdirCount, 2);
+        done();
+      });
+    });
+  });
+
+  describe('error reporting waits for in-flight entries', () => {
+    it('should call back only after every sibling has finished (async)', (done) => {
+      const dirPath = path.join(TMP_DIR, 'drain');
+      mkdirp.sync(dirPath);
+
+      mockFs('readdir', (_p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, files: string[]) => void) => {
+        cb(null, ['fast.txt', 'slow.txt']);
+      });
+
+      let slowFinished = false;
+      const originalLstat = fs.lstat.bind(fs);
+      mockFs('lstat', (p: fs.PathLike, cb: (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void) => {
+        if (p.toString() === dirPath) return originalLstat(p, cb);
+        if (p.toString() === path.join(dirPath, 'fast.txt')) {
+          process.nextTick(() => cb(createEACCESError(), undefined as unknown as fs.Stats));
+          return;
+        }
+        setTimeout(() => {
+          slowFinished = true;
+          cb(createENOENTError(), undefined as unknown as fs.Stats);
+        }, 30);
+      });
+
+      fallbackRm(dirPath, { recursive: true, force: true }, (err) => {
+        assert.equal(err?.code, 'EACCES');
+        assert.ok(slowFinished, 'callback fired before the slow sibling finished');
+        done();
       });
     });
   });

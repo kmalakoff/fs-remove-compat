@@ -1,7 +1,7 @@
 import assert from 'assert';
 
 // Import retry utilities directly
-import { busyWait, getBackoffDelay, isRetryableError, SAFE_DEFAULTS } from '../../src/retry.ts';
+import { busyWait, getRetryDelay, isRetryableError, SAFE_DEFAULTS, withSafeDefaults } from '../../src/retry.ts';
 
 const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 
@@ -77,25 +77,33 @@ describe('retry utilities', () => {
     });
   });
 
-  describe('getBackoffDelay', () => {
-    it('should return base delay for attempt 0', () => {
-      assert.equal(getBackoffDelay(100, 0), 100);
+  describe('withSafeDefaults', () => {
+    it('should fill every option from SAFE_DEFAULTS', () => {
+      assert.deepEqual(withSafeDefaults(), SAFE_DEFAULTS);
+      assert.deepEqual(withSafeDefaults(undefined), SAFE_DEFAULTS);
     });
 
-    it('should apply exponential backoff', () => {
-      // factor is 1.2
-      // attempt 1: 100 * 1.2^1 = 120
-      assert.equal(getBackoffDelay(100, 1), 120);
-      // attempt 2: 100 * 1.2^2 = 144
-      assert.equal(getBackoffDelay(100, 2), 144);
-      // attempt 3: 100 * 1.2^3 = 172.8 -> 172
-      assert.equal(getBackoffDelay(100, 3), 172);
+    it('should keep explicit options', () => {
+      const opts = withSafeDefaults({ recursive: false, force: false, maxRetries: 3, retryDelay: 5 });
+      assert.deepEqual(opts, { recursive: false, force: false, maxRetries: 3, retryDelay: 5 });
+    });
+  });
+
+  describe('getRetryDelay', () => {
+    it('should return base delay for attempt 0', () => {
+      assert.equal(getRetryDelay(100, 0), 100);
+    });
+
+    it('should apply linear backoff', () => {
+      assert.equal(getRetryDelay(100, 1), 200);
+      assert.equal(getRetryDelay(100, 2), 300);
+      assert.equal(getRetryDelay(100, 9), 1000);
     });
 
     it('should handle different base delays', () => {
-      assert.equal(getBackoffDelay(50, 0), 50);
-      assert.equal(getBackoffDelay(200, 0), 200);
-      assert.equal(getBackoffDelay(50, 1), 60); // 50 * 1.2
+      assert.equal(getRetryDelay(50, 0), 50);
+      assert.equal(getRetryDelay(200, 0), 200);
+      assert.equal(getRetryDelay(50, 1), 100);
     });
   });
 
