@@ -1,128 +1,50 @@
 # fs-remove-compat
 
-Cross-platform file removal utilities with Node.js 0.8+ compatibility.
+Cross-platform file removal utilities with Node.js 0.8+ compatibility. The strict `rm` and `rmSync` functions match the Node.js `fs.rm` APIs. The `safeRm` and `safeRmSync` variants use Windows-friendly defaults for cleanup tasks.
 
-## Features
+## Install
 
-- **Strict ponyfills**: `rm` and `rmSync` exactly match Node.js `fs.rm`/`fs.rmSync` API
-- **Enhanced variants**: `safeRm` and `safeRmSync` with Windows-friendly defaults
-- **Node 0.8+ support**: Works on all Node.js versions
-- **Zero dependencies**: Pure Node.js implementation
-- **Migration codemod**: Auto-migrate from rimraf2
-
-## Installation
-
-```bash
+```sh
 npm install fs-remove-compat
 ```
 
-## Usage
+## Use
 
-### Strict Ponyfills (match Node.js fs.rm)
+This CommonJS example creates and removes a disposable file, then reports errors through the callback.
 
-```typescript
-import { rm, rmSync } from 'fs-remove-compat';
+```js
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+var rm = require('fs-remove-compat').rm;
 
-// Remove a file
-rmSync('/path/to/file.txt');
-
-// Remove directory recursively
-rmSync('/path/to/dir', { recursive: true });
-
-// Ignore if doesn't exist
-rmSync('/path/to/maybe', { force: true });
-
-// Async with callback
-rm('/path/to/file.txt', (err) => {
-  if (err) console.error(err);
+var file = path.join(os.tmpdir(), 'fs-remove-compat-example.txt');
+fs.writeFileSync(file, 'temporary file');
+rm(file, function (error) {
+  if (error) throw error;
+  console.log('Removed');
 });
-
-// Async with Promise
-await rm('/path/to/file.txt');
-await rm('/path/to/dir', { recursive: true, force: true });
 ```
 
-### Enhanced Variants (Windows-friendly)
-
-```typescript
-import { safeRm, safeRmSync } from 'fs-remove-compat';
-
-// safeRm/safeRmSync have Windows-friendly defaults:
-// - recursive: true, force: true
-// - maxRetries: 10 on Windows, 0 on POSIX
-// - Linear backoff per entry (retryDelay * attempt), the schedule Node.js fs.rm uses
-// - EPERM chmod fix for read-only files; EPERM from lstat is retried so a file whose
-//   delete is still pending (a handle another process holds) is waited out
-
-// Use for CI/test cleanup where Windows file locking is common
-safeRmSync('/path/to/dir', { recursive: true, force: true });
-await safeRm('/path/to/dir', { recursive: true, force: true });
-```
+`rm` and `rmSync` default to `recursive: false`, `force: false`, and `maxRetries: 0`. `safeRm` and `safeRmSync` default to `recursive: true` and `force: true`; on Windows they retry removable errors up to 10 times. Pass `recursive: true` to remove a directory with the strict functions.
 
 ## API
 
-### Options
-
-```typescript
+```ts
 interface RmOptions {
-  recursive?: boolean;   // Remove directories recursively. Default: false
-  force?: boolean;       // Ignore ENOENT errors. Default: false
-  maxRetries?: number;   // Retries per entry on EBUSY/EPERM/etc. Default: 0 (or 10 on Windows for safe*)
-  retryDelay?: number;   // Base delay between retries in ms, grows linearly. Default: 100
+  recursive?: boolean;
+  force?: boolean;
+  maxRetries?: number;
+  retryDelay?: number;
 }
 ```
 
-### rm(path, [options], [callback])
+- `rm(path, [options], callback)` removes a file or directory asynchronously.
+- `rmSync(path, [options])` removes a file or directory synchronously.
+- `safeRm(path, [options], callback)` is the asynchronous cleanup variant.
+- `safeRmSync(path, [options])` is the synchronous cleanup variant.
 
-Removes a file or directory. Matches Node.js `fs.rm` signature.
-
-### rmSync(path, [options])
-
-Synchronous version. Matches Node.js `fs.rmSync` signature.
-
-### safeRm(path, [options], [callback])
-
-Enhanced version with Windows-friendly defaults.
-
-### safeRmSync(path, [options])
-
-Synchronous enhanced version.
-
-## Migration from rimraf2
-
-The package includes a smart migration codemod:
-
-```bash
-npx fs-remove-compat migrate <directory>
-```
-
-### Smart Detection
-
-The codemod automatically chooses the right function based on file location:
-
-**Source files** (`src/`) - Uses strict ponyfill:
-- `rm` / `rmSync` - exactly matches Node.js behavior
-- Apps should know immediately if removal fails
-
-**Test files** (`test/`) - Uses enhanced variant:
-- `safeRm` / `safeRmSync` - Windows-friendly retry defaults
-- Retry is acceptable for test cleanup
-
-### Transformations
-
-| Context | Before | After |
-|---------|--------|-------|
-| Source | `rimraf2(p, {disableGlob:true}, cb)` | `rm(p, cb)` |
-| Source | `rimraf2.sync(p, {disableGlob:true})` | `rmSync(p)` |
-| Test | `rimraf2(p, {disableGlob:true}, cb)` | `safeRm(p, cb)` |
-| Test | `rimraf2.sync(p, {disableGlob:true})` | `safeRmSync(p)` |
-
-## Why use this?
-
-1. **Replace rimraf2** without the `{ disableGlob: true }` boilerplate
-2. **Cross-platform** with automatic Windows retry logic
-3. **Future-proof** - `rm`/`rmSync` use native `fs.rm` when available (Node 14.14+); `safeRm`/`safeRmSync` use one walk on every version so retries stay bounded per entry
-4. **Backwards compatible** - works on Node 0.8+
+The asynchronous functions use Node-style callbacks. They do not return Promises. Use `safeRm` or `safeRmSync` for cleanup where Windows file locking is common. The package uses native `fs.rm` on Node 14.14 and newer and a fallback on older versions.
 
 ## License
 

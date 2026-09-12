@@ -1,47 +1,19 @@
 import assert from 'assert';
 import fs from 'fs';
+import { safeRmSync } from 'fs-remove-compat';
 import mkdirp from 'mkdirp-classic';
 import path from 'path';
-import url from 'url';
-
 // Import fixWinEPERM utilities directly
-import { fixWinEPERM, fixWinEPERMSync, shouldFixEPERM } from '../../src/fallback/fixWinEPERM.ts';
+import { fixWinEPERM, fixWinEPERMSync, shouldFixEPERM } from '../../../src/fallback/fixWinEPERM.ts';
+import { isWindows } from '../../lib/platform.ts';
+import { createScratch, TMP_DIR } from '../../lib/scratch.ts';
 
-const ___filename = typeof __filename !== 'undefined' ? __filename : url.fileURLToPath(import.meta.url);
-const ___dirname = path.dirname(___filename);
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
-
-const TMP_DIR = path.join(___dirname, '..', '..', '.tmp', 'eperm-test');
-
-function cleanTmp(): void {
-  try {
-    if (fs.existsSync(TMP_DIR)) {
-      // Manual recursive removal
-      const removeRecursive = (p: string) => {
-        if (fs.statSync(p).isDirectory()) {
-          const entries = fs.readdirSync(p);
-          for (let i = 0; i < entries.length; i++) {
-            removeRecursive(path.join(p, entries[i]));
-          }
-          fs.rmdirSync(p);
-        } else {
-          fs.unlinkSync(p);
-        }
-      };
-      removeRecursive(TMP_DIR);
-    }
-  } catch (_e) {
-    // ignore
-  }
-}
-
-function setupTmp(): void {
-  cleanTmp();
-  mkdirp.sync(TMP_DIR);
-}
+const { setupTmp, cleanTmp } = createScratch(safeRmSync);
+const SUITE_TMP_DIR = path.join(TMP_DIR, 'fallback-fixWinEPERM');
 
 describe('fixWinEPERM utilities', () => {
   beforeEach(setupTmp);
+  beforeEach(() => mkdirp.sync(SUITE_TMP_DIR));
   after(cleanTmp);
 
   describe('shouldFixEPERM', () => {
@@ -72,7 +44,7 @@ describe('fixWinEPERM utilities', () => {
 
   describe('fixWinEPERMSync', () => {
     it('should remove a file after chmod', () => {
-      const filePath = path.join(TMP_DIR, 'test-file.txt');
+      const filePath = path.join(SUITE_TMP_DIR, 'test-file.txt');
       fs.writeFileSync(filePath, 'content');
 
       const originalError = new Error('EPERM') as NodeJS.ErrnoException;
@@ -83,7 +55,7 @@ describe('fixWinEPERM utilities', () => {
     });
 
     it('should remove a directory after chmod', () => {
-      const dirPath = path.join(TMP_DIR, 'test-dir');
+      const dirPath = path.join(SUITE_TMP_DIR, 'test-dir');
       mkdirp.sync(dirPath);
 
       const originalError = new Error('EPERM') as NodeJS.ErrnoException;
@@ -94,7 +66,7 @@ describe('fixWinEPERM utilities', () => {
     });
 
     it('should throw original error if chmod fails', () => {
-      const filePath = path.join(TMP_DIR, 'nonexistent.txt');
+      const filePath = path.join(SUITE_TMP_DIR, 'nonexistent.txt');
       const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
       originalError.code = 'EPERM';
 
@@ -107,7 +79,7 @@ describe('fixWinEPERM utilities', () => {
     });
 
     it('should throw original error if stat fails after chmod', () => {
-      const filePath = path.join(TMP_DIR, 'stat-fail.txt');
+      const filePath = path.join(SUITE_TMP_DIR, 'stat-fail.txt');
       fs.writeFileSync(filePath, 'content');
 
       const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
@@ -127,7 +99,7 @@ describe('fixWinEPERM utilities', () => {
 
   describe('fixWinEPERM', () => {
     it('should remove a file after chmod (callback)', (done) => {
-      const filePath = path.join(TMP_DIR, 'test-file-cb.txt');
+      const filePath = path.join(SUITE_TMP_DIR, 'test-file-cb.txt');
       fs.writeFileSync(filePath, 'content');
 
       const originalError = new Error('EPERM') as NodeJS.ErrnoException;
@@ -141,7 +113,7 @@ describe('fixWinEPERM utilities', () => {
     });
 
     it('should remove a directory after chmod (callback)', (done) => {
-      const dirPath = path.join(TMP_DIR, 'test-dir-cb');
+      const dirPath = path.join(SUITE_TMP_DIR, 'test-dir-cb');
       mkdirp.sync(dirPath);
 
       const originalError = new Error('EPERM') as NodeJS.ErrnoException;
@@ -155,7 +127,7 @@ describe('fixWinEPERM utilities', () => {
     });
 
     it('should return original error if chmod fails (callback)', (done) => {
-      const filePath = path.join(TMP_DIR, 'nonexistent-cb.txt');
+      const filePath = path.join(SUITE_TMP_DIR, 'nonexistent-cb.txt');
       const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
       originalError.code = 'EPERM';
 
@@ -167,7 +139,7 @@ describe('fixWinEPERM utilities', () => {
     });
 
     it('should return original error if stat fails after chmod (callback)', (done) => {
-      const filePath = path.join(TMP_DIR, 'stat-fail-cb.txt');
+      const filePath = path.join(SUITE_TMP_DIR, 'stat-fail-cb.txt');
       fs.writeFileSync(filePath, 'content');
 
       const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
