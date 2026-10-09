@@ -1,8 +1,9 @@
 import fs from 'fs';
 import fallbackRm from './fallback/rm.ts';
-import type { RmCallback, RmOptions } from './types.ts';
-
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
+import { validateCallback, validateNativeOptions } from './lib/options.ts';
+import { validatePath } from './lib/path.ts';
+import { isWindows } from './lib/platform.ts';
+import type { RmCallback, RmOptions, RmPath } from './types.ts';
 
 /**
  * Check if native fs.rm is available.
@@ -13,13 +14,13 @@ const HAS_NATIVE_RM = typeof (fs as typeof fs & { rm?: unknown }).rm === 'functi
 /**
  * Remove a file or directory asynchronously.
  *
- * This is a ponyfill that exactly matches Node.js fs.rm behavior:
+ * This ponyfill delegates to native fs.rm and backports its documented removal options:
  * - Uses native fs.rm when available (Node 14.14+)
  * - Falls back to custom implementation for older Node versions
  */
-function rm(path: string, callback: RmCallback): void;
-function rm(path: string, options: RmOptions, callback: RmCallback): void;
-function rm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCallback?: RmCallback): void {
+function rm(path: RmPath, callback: RmCallback): void;
+function rm(path: RmPath, options: RmOptions, callback: RmCallback): void;
+function rm(path: RmPath, optionsOrCallback: RmOptions | RmCallback, maybeCallback?: RmCallback): void {
   // Parse arguments
   if (typeof optionsOrCallback === 'function') {
     rmImpl(path, undefined, optionsOrCallback);
@@ -33,11 +34,14 @@ function rm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCallba
  * On Windows, we need to handle symlinks specially because native fs.rm
  * can fail with ENOENT when calling stat on broken symlinks.
  */
-function rmImpl(path: string, options: RmOptions | undefined, callback: RmCallback) {
+function rmImpl(path: RmPath, options: RmOptions | undefined, callback: RmCallback) {
+  validateCallback(callback);
   if (HAS_NATIVE_RM) {
     // On Windows, check if path is a symlink first to avoid native fs.rm bug
     // where it fails on broken symlinks (symlinks pointing to deleted targets)
     if (isWindows) {
+      path = validatePath(path);
+      options = validateNativeOptions(options);
       fs.lstat(path, (lstatErr, stats) => {
         if (lstatErr) {
           // If lstat fails with ENOENT and force is set, succeed silently
@@ -51,11 +55,11 @@ function rmImpl(path: string, options: RmOptions | undefined, callback: RmCallba
             callback(unlinkErr);
           });
         } else {
-          (fs as typeof fs & { rm: (path: string, options: RmOptions | undefined, callback: RmCallback) => void }).rm(path, options, callback);
+          (fs as typeof fs & { rm: (path: RmPath, options: RmOptions | undefined, callback: RmCallback) => void }).rm(path, options, callback);
         }
       });
     } else {
-      (fs as typeof fs & { rm: (path: string, options: RmOptions | undefined, callback: RmCallback) => void }).rm(path, options, callback);
+      (fs as typeof fs & { rm: (path: RmPath, options: RmOptions | undefined, callback: RmCallback) => void }).rm(path, options, callback);
     }
   } else {
     fallbackRm(path, options, callback);

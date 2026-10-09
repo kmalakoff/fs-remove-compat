@@ -1,6 +1,6 @@
 import fallbackRm from './fallback/rm.ts';
 import { withSafeDefaults } from './retry.ts';
-import type { RmCallback, RmOptions } from './types.ts';
+import type { RmCallback, RmOptions, RmPath } from './types.ts';
 
 /**
  * Remove a file or directory asynchronously with Windows-friendly defaults.
@@ -14,12 +14,12 @@ import type { RmCallback, RmOptions } from './types.ts';
  * entry in a deep tree waits maxRetries^depth times, and it reports errors while entries are
  * still being deleted. Use this for CI/test cleanup. For strict fs.rm compatibility, use rm.
  */
-function safeRm(path: string, callback: RmCallback): void;
-function safeRm(path: string, options: RmOptions, callback: RmCallback): void;
-function safeRm(path: string, optionsOrCallback: RmOptions | RmCallback, maybeCallback?: RmCallback): void {
+function safeRm(path: RmPath, callback: RmCallback): void;
+function safeRm(path: RmPath, options: RmOptions, callback: RmCallback): void;
+function safeRm(path: RmPath, optionsOrCallback: RmOptions | RmCallback, maybeCallback?: RmCallback): void {
   const options = typeof optionsOrCallback === 'function' ? undefined : optionsOrCallback;
   const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : (maybeCallback as RmCallback);
-  fallbackRm(path, withSafeDefaults(options), callback);
+  fallbackRm(path, withSafeDefaults(options), callback, true);
 }
 
 export default safeRm;

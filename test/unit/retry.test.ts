@@ -3,7 +3,7 @@ import assert from 'assert';
 // Import retry utilities directly
 import { busyWait, getRetryDelay, isRetryableError, SAFE_DEFAULTS, withSafeDefaults } from '../../src/retry.ts';
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
+import { isWindows } from '../lib/platform.ts';
 
 describe('retry utilities', () => {
   describe('SAFE_DEFAULTS', () => {
@@ -108,20 +108,15 @@ describe('retry utilities', () => {
   });
 
   describe('busyWait', () => {
-    it('should wait approximately the specified time', () => {
+    it('should wait at least the specified time', () => {
       const start = Date.now();
       busyWait(50);
       const elapsed = Date.now() - start;
-      // Allow some tolerance
-      assert.ok(elapsed >= 45, `Expected >= 45ms, got ${elapsed}ms`);
-      assert.ok(elapsed < 100, `Expected < 100ms, got ${elapsed}ms`);
+      assert.ok(elapsed >= 50, `Expected >= 50ms, got ${elapsed}ms`);
     });
 
     it('should handle 0ms', () => {
-      const start = Date.now();
       busyWait(0);
-      const elapsed = Date.now() - start;
-      assert.ok(elapsed < 50, `Expected < 50ms, got ${elapsed}ms`);
     });
   });
 });

@@ -3,157 +3,140 @@ import fs from 'fs';
 import { safeRmSync } from 'fs-remove-compat';
 import mkdirp from 'mkdirp-classic';
 import path from 'path';
-// Import fixWinEPERM utilities directly
 import { fixWinEPERM, fixWinEPERMSync, shouldFixEPERM } from '../../../src/fallback/fixWinEPERM.ts';
 import { isWindows } from '../../lib/platform.ts';
 import { createScratch, TMP_DIR } from '../../lib/scratch.ts';
 
 const { setupTmp, cleanTmp } = createScratch(safeRmSync);
-const SUITE_TMP_DIR = path.join(TMP_DIR, 'fallback-fixWinEPERM');
+const root = path.join(TMP_DIR, 'fix-eperm');
 
-describe('fixWinEPERM utilities', () => {
+function originalError(): NodeJS.ErrnoException {
+  try {
+    fs.unlinkSync(path.join(TMP_DIR, 'missing'));
+  } catch (error) {
+    return error as NodeJS.ErrnoException;
+  }
+  throw new Error('Expected the operating system to reject removal of a missing file');
+}
+
+describe('fixWinEPERM', () => {
   beforeEach(setupTmp);
-  beforeEach(() => mkdirp.sync(SUITE_TMP_DIR));
   after(cleanTmp);
 
-  describe('shouldFixEPERM', () => {
-    it('should return true for EPERM on Windows', () => {
-      const err = new Error('EPERM') as NodeJS.ErrnoException;
-      err.code = 'EPERM';
+  it('does not select a real ENOENT error for permission repair', () => {
+    assert.equal(shouldFixEPERM(originalError()), false);
+  });
 
-      if (isWindows) {
-        assert.equal(shouldFixEPERM(err), true);
-      } else {
-        // On non-Windows, should always return false
-        assert.equal(shouldFixEPERM(err), false);
-      }
-    });
+  it('clears file permissions and removes the file synchronously', () => {
+    fs.writeFileSync(root, 'file');
+    fs.chmodSync(root, 0o444);
+    fixWinEPERMSync(root, originalError());
+    assert.ok(!fs.existsSync(root));
+  });
 
-    it('should return false for non-EPERM errors', () => {
-      const err = new Error('ENOENT') as NodeJS.ErrnoException;
-      err.code = 'ENOENT';
-      assert.equal(shouldFixEPERM(err), false);
-    });
-
-    it('should return false for EBUSY', () => {
-      const err = new Error('EBUSY') as NodeJS.ErrnoException;
-      err.code = 'EBUSY';
-      assert.equal(shouldFixEPERM(err), false);
+  it('clears file permissions and removes the file asynchronously', (done) => {
+    fs.writeFileSync(root, 'file');
+    fs.chmodSync(root, 0o444);
+    fixWinEPERM(root, originalError(), (error) => {
+      if (error) return done(error);
+      assert.ok(!fs.existsSync(root));
+      done();
     });
   });
 
-  describe('fixWinEPERMSync', () => {
-    it('should remove a file after chmod', () => {
-      const filePath = path.join(SUITE_TMP_DIR, 'test-file.txt');
-      fs.writeFileSync(filePath, 'content');
+  it('removes an empty directory synchronously', () => {
+    mkdirp.sync(root);
+    fixWinEPERMSync(root, originalError());
+    assert.ok(!fs.existsSync(root));
+  });
 
-      const originalError = new Error('EPERM') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      fixWinEPERMSync(filePath, originalError);
-      assert.ok(!fs.existsSync(filePath));
-    });
-
-    it('should remove a directory after chmod', () => {
-      const dirPath = path.join(SUITE_TMP_DIR, 'test-dir');
-      mkdirp.sync(dirPath);
-
-      const originalError = new Error('EPERM') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      fixWinEPERMSync(dirPath, originalError);
-      assert.ok(!fs.existsSync(dirPath));
-    });
-
-    it('should throw original error if chmod fails', () => {
-      const filePath = path.join(SUITE_TMP_DIR, 'nonexistent.txt');
-      const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      try {
-        fixWinEPERMSync(filePath, originalError);
-        assert.fail('should have thrown');
-      } catch (err: unknown) {
-        assert.equal((err as Error).message, 'EPERM: original');
-      }
-    });
-
-    it('should throw original error if stat fails after chmod', () => {
-      const filePath = path.join(SUITE_TMP_DIR, 'stat-fail.txt');
-      fs.writeFileSync(filePath, 'content');
-
-      const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      // Remove the file after chmod would succeed but before stat
-      fs.unlinkSync(filePath);
-
-      try {
-        fixWinEPERMSync(filePath, originalError);
-        assert.fail('should have thrown');
-      } catch (err: unknown) {
-        assert.equal((err as Error).message, 'EPERM: original');
-      }
+  it('removes an empty directory asynchronously', (done) => {
+    mkdirp.sync(root);
+    fixWinEPERM(root, originalError(), (error) => {
+      if (error) return done(error);
+      assert.ok(!fs.existsSync(root));
+      done();
     });
   });
 
-  describe('fixWinEPERM', () => {
-    it('should remove a file after chmod (callback)', (done) => {
-      const filePath = path.join(SUITE_TMP_DIR, 'test-file-cb.txt');
-      fs.writeFileSync(filePath, 'content');
+  it('preserves the original error identity when chmod fails synchronously', () => {
+    const original = originalError();
+    assert.throws(
+      () => fixWinEPERMSync(root, original),
+      (error: unknown) => error === original
+    );
+  });
 
-      const originalError = new Error('EPERM') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      fixWinEPERM(filePath, originalError, (err) => {
-        if (err) return done(err);
-        assert.ok(!fs.existsSync(filePath));
-        done();
-      });
-    });
-
-    it('should remove a directory after chmod (callback)', (done) => {
-      const dirPath = path.join(SUITE_TMP_DIR, 'test-dir-cb');
-      mkdirp.sync(dirPath);
-
-      const originalError = new Error('EPERM') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      fixWinEPERM(dirPath, originalError, (err) => {
-        if (err) return done(err);
-        assert.ok(!fs.existsSync(dirPath));
-        done();
-      });
-    });
-
-    it('should return original error if chmod fails (callback)', (done) => {
-      const filePath = path.join(SUITE_TMP_DIR, 'nonexistent-cb.txt');
-      const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      fixWinEPERM(filePath, originalError, (err) => {
-        assert.ok(err);
-        assert.equal(err?.message, 'EPERM: original');
-        done();
-      });
-    });
-
-    it('should return original error if stat fails after chmod (callback)', (done) => {
-      const filePath = path.join(SUITE_TMP_DIR, 'stat-fail-cb.txt');
-      fs.writeFileSync(filePath, 'content');
-
-      const originalError = new Error('EPERM: original') as NodeJS.ErrnoException;
-      originalError.code = 'EPERM';
-
-      // Remove the file after chmod - we need to do this in the callback chain
-      // So we create a file, then immediately remove it to trigger the stat failure
-      fs.unlinkSync(filePath);
-
-      fixWinEPERM(filePath, originalError, (err) => {
-        assert.ok(err);
-        assert.equal(err?.message, 'EPERM: original');
-        done();
-      });
+  it('preserves the original error identity when chmod fails asynchronously', (done) => {
+    const original = originalError();
+    fixWinEPERM(root, original, (error) => {
+      assert.equal(error, original);
+      done();
     });
   });
+
+  it('propagates a real nonempty-directory removal error', () => {
+    mkdirp.sync(root);
+    fs.writeFileSync(path.join(root, 'keep'), 'keep');
+    try {
+      assert.throws(
+        () => fixWinEPERMSync(root, originalError()),
+        (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOTEMPTY'
+      );
+    } finally {
+      fs.chmodSync(root, 0o755);
+    }
+    assert.equal(fs.readFileSync(path.join(root, 'keep'), 'utf8'), 'keep');
+  });
+
+  it('propagates a real nonempty-directory removal error asynchronously', (done) => {
+    mkdirp.sync(root);
+    fs.writeFileSync(path.join(root, 'keep'), 'keep');
+    fixWinEPERM(root, originalError(), (error) => {
+      fs.chmodSync(root, 0o755);
+      assert.equal(error?.code, 'ENOTEMPTY');
+      assert.equal(fs.readFileSync(path.join(root, 'keep'), 'utf8'), 'keep');
+      done();
+    });
+  });
+  if (isWindows) {
+    // Directory unlink produces EPERM even when native file unlink handles read-only attributes.
+    // The windows-latest CI job owns the attribute mutation assertions.
+    function readOnlyDirectoryError(): NodeJS.ErrnoException {
+      mkdirp.sync(root);
+      fs.writeFileSync(path.join(root, 'keep'), 'keep');
+      fs.chmodSync(root, 0o444);
+      assert.equal(fs.statSync(root).mode & 0o222, 0);
+      let original: NodeJS.ErrnoException | undefined;
+      assert.throws(
+        () => fs.unlinkSync(root),
+        (error: unknown) => {
+          original = error as NodeJS.ErrnoException;
+          return original.code === 'EPERM';
+        }
+      );
+      assert.equal(fs.statSync(root).mode & 0o222, 0);
+      assert.equal(shouldFixEPERM(original as NodeJS.ErrnoException), true);
+      return original as NodeJS.ErrnoException;
+    }
+
+    it('clears the Windows read-only directory attribute before returning ENOTEMPTY synchronously', () => {
+      const original = readOnlyDirectoryError();
+      assert.throws(
+        () => fixWinEPERMSync(root, original),
+        (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOTEMPTY'
+      );
+      assert.equal(fs.statSync(root).mode & 0o222, 0o222);
+      assert.equal(fs.readFileSync(path.join(root, 'keep'), 'utf8'), 'keep');
+    });
+
+    it('clears the Windows read-only directory attribute before returning ENOTEMPTY asynchronously', (done) => {
+      fixWinEPERM(root, readOnlyDirectoryError(), (error) => {
+        assert.equal(error?.code, 'ENOTEMPTY');
+        assert.equal(fs.statSync(root).mode & 0o222, 0o222);
+        assert.equal(fs.readFileSync(path.join(root, 'keep'), 'utf8'), 'keep');
+        done();
+      });
+    });
+  }
 });

@@ -1,17 +1,18 @@
 import fs from 'fs';
-import { join } from 'path';
+import { validateCallback, validateOptions } from '../lib/options.ts';
+import { childPath, type FsPath, HAS_BUFFER_PATHS, validatePath } from '../lib/path.ts';
 import { getRetryDelay, isRetryableError } from '../retry.ts';
-import type { RmCallback, RmOptions } from '../types.ts';
+import type { RmCallback, RmOptions, RmPath } from '../types.ts';
 import { createEISDIR } from './errors.ts';
 import { fixWinEPERM, shouldFixEPERM } from './fixWinEPERM.ts';
 
-type Attempt = (path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback) => void;
+type Attempt = (path: FsPath, options: Required<RmOptions>, attempt: number, callback: RmCallback) => void;
 
 /**
  * Retry one operation on a retryable error. Retries never re-walk a directory, so the
  * wait for a stuck entry is bounded by maxRetries regardless of tree depth.
  */
-function retryOrFail(path: string, options: Required<RmOptions>, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback, retryFn: Attempt): void {
+function retryOrFail(path: FsPath, options: Required<RmOptions>, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback, retryFn: Attempt): void {
   if (!isRetryableError(err) || attempt >= options.maxRetries) {
     callback(err);
     return;
@@ -27,7 +28,7 @@ function retryOrFail(path: string, options: Required<RmOptions>, attempt: number
 /**
  * On Windows EPERM, clear the read-only bit and remove once before backing off.
  */
-function fixOrRetry(path: string, options: Required<RmOptions>, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback, retryFn: Attempt): void {
+function fixOrRetry(path: FsPath, options: Required<RmOptions>, attempt: number, err: NodeJS.ErrnoException, callback: RmCallback, retryFn: Attempt): void {
   if (!shouldFixEPERM(err)) return retryOrFail(path, options, attempt, err, callback, retryFn);
   fixWinEPERM(path, err, (fixErr) => {
     if (!fixErr) return callback();
@@ -35,7 +36,7 @@ function fixOrRetry(path: string, options: Required<RmOptions>, attempt: number,
   });
 }
 
-function unlinkWithRetry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
+function unlinkWithRetry(path: FsPath, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
   fs.unlink(path, (err) => {
     if (!err) return callback();
     if (err.code === 'ENOENT') return options.force ? callback() : callback(err);
@@ -43,7 +44,7 @@ function unlinkWithRetry(path: string, options: Required<RmOptions>, attempt: nu
   });
 }
 
-function rmdirWithRetry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
+function rmdirWithRetry(path: FsPath, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
   fs.rmdir(path, (err) => {
     if (!err) return callback();
     if (err.code === 'ENOENT') return options.force ? callback() : callback(err);
@@ -55,7 +56,7 @@ function rmdirWithRetry(path: string, options: Required<RmOptions>, attempt: num
  * Remove one entry. lstat gets the same retry as unlink: Windows reports a file whose
  * delete is pending as EPERM until the last handle on it closes.
  */
-function removeEntry(path: string, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
+function removeEntry(path: FsPath, options: Required<RmOptions>, attempt: number, callback: RmCallback): void {
   fs.lstat(path, (statErr, stats) => {
     if (statErr) {
       if (statErr.code === 'ENOENT') return options.force ? callback() : callback(statErr);
@@ -71,8 +72,8 @@ function removeEntry(path: string, options: Required<RmOptions>, attempt: number
  * Remove a directory's entries in parallel, then the directory. An error is reported only
  * after every in-flight entry has finished, so nothing keeps deleting after the callback.
  */
-function rmdirRecursive(path: string, options: Required<RmOptions>, callback: RmCallback): void {
-  fs.readdir(path, (readErr, entries) => {
+function rmdirRecursive(path: FsPath, options: Required<RmOptions>, callback: RmCallback): void {
+  const onRead = (readErr: NodeJS.ErrnoException | null, entries: FsPath[]) => {
     if (readErr) {
       if (readErr.code === 'ENOENT' && options.force) return callback();
       return callback(readErr);
@@ -90,21 +91,21 @@ function rmdirRecursive(path: string, options: Required<RmOptions>, callback: Rm
     };
 
     for (let i = 0; i < entries.length; i++) {
-      removeEntry(join(path, entries[i]), options, 0, onDone);
+      removeEntry(childPath(path, entries[i]), options, 0, onDone);
     }
-  });
+  };
+  if (HAS_BUFFER_PATHS) fs.readdir(path, { encoding: 'buffer' }, onRead);
+  else fs.readdir(path, onRead);
 }
 
 /**
  * Fallback rm implementation for Node < 14.14.
- * Matches Node.js fs.rm API.
+ * Backports documented removal options and paths; retries are bounded per entry.
  */
-export default function fallbackRm(path: string, options: RmOptions | undefined, callback: RmCallback): void {
-  const opts: Required<RmOptions> = {
-    recursive: options?.recursive ?? false,
-    force: options?.force ?? false,
-    maxRetries: options?.maxRetries ?? 0,
-    retryDelay: options?.retryDelay ?? 100,
-  };
-  removeEntry(path, opts, 0, callback);
+export default function fallbackRm(path: RmPath, options: RmOptions | undefined, callback: RmCallback, safeRetries = false): void {
+  const target = validatePath(path);
+  const opts = validateOptions(options);
+  validateCallback(callback);
+  if (!opts.recursive && !safeRetries) opts.maxRetries = 0;
+  removeEntry(target, opts, 0, callback);
 }

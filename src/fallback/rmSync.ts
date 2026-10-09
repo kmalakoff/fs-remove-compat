@@ -1,7 +1,8 @@
 import fs from 'fs';
-import { join } from 'path';
+import { validateOptions } from '../lib/options.ts';
+import { childPath, type FsPath, HAS_BUFFER_PATHS, validatePath } from '../lib/path.ts';
 import { busyWait, getRetryDelay, isRetryableError } from '../retry.ts';
-import type { RmOptions } from '../types.ts';
+import type { RmOptions, RmPath } from '../types.ts';
 import { createEISDIR } from './errors.ts';
 import { fixWinEPERMSync, shouldFixEPERM } from './fixWinEPERM.ts';
 
@@ -9,7 +10,7 @@ import { fixWinEPERMSync, shouldFixEPERM } from './fixWinEPERM.ts';
  * Run one operation with retries. Returns undefined when the entry is gone (ENOENT with force,
  * or removed by the Windows EPERM fix). Retries never re-walk a directory.
  */
-function retrySync<T>(path: string, options: Required<RmOptions>, op: () => T): T | undefined {
+function retrySync<T>(path: FsPath, options: Required<RmOptions>, op: () => T): T | undefined {
   for (let attempt = 0; ; attempt++) {
     try {
       return op();
@@ -37,7 +38,7 @@ function retrySync<T>(path: string, options: Required<RmOptions>, op: () => T): 
  * Remove one entry. lstat gets the same retry as unlink: Windows reports a file whose
  * delete is pending as EPERM until the last handle on it closes.
  */
-function removeEntrySync(path: string, options: Required<RmOptions>): void {
+function removeEntrySync(path: FsPath, options: Required<RmOptions>): void {
   const stats = retrySync(path, options, () => fs.lstatSync(path));
   if (!stats) return;
   if (!stats.isDirectory()) {
@@ -48,10 +49,10 @@ function removeEntrySync(path: string, options: Required<RmOptions>): void {
   rmdirRecursiveSync(path, options);
 }
 
-function rmdirRecursiveSync(path: string, options: Required<RmOptions>): void {
-  let entries: string[];
+function rmdirRecursiveSync(path: FsPath, options: Required<RmOptions>): void {
+  let entries: FsPath[];
   try {
-    entries = fs.readdirSync(path);
+    entries = HAS_BUFFER_PATHS ? fs.readdirSync(path, { encoding: 'buffer' }) : fs.readdirSync(path);
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
     if (error.code === 'ENOENT' && options.force) return;
@@ -59,21 +60,18 @@ function rmdirRecursiveSync(path: string, options: Required<RmOptions>): void {
   }
 
   for (let i = 0; i < entries.length; i++) {
-    removeEntrySync(join(path, entries[i]), options);
+    removeEntrySync(childPath(path, entries[i]), options);
   }
   retrySync(path, options, () => fs.rmdirSync(path));
 }
 
 /**
  * Fallback rmSync implementation for Node < 14.14.
- * Matches Node.js fs.rmSync API.
+ * Backports documented removal options and paths; retries are bounded per entry.
  */
-export default function fallbackRmSync(path: string, options?: RmOptions): void {
-  const opts: Required<RmOptions> = {
-    recursive: options?.recursive ?? false,
-    force: options?.force ?? false,
-    maxRetries: options?.maxRetries ?? 0,
-    retryDelay: options?.retryDelay ?? 100,
-  };
-  removeEntrySync(path, opts);
+export default function fallbackRmSync(path: RmPath, options?: RmOptions, safeRetries = false): void {
+  const target = validatePath(path);
+  const opts = validateOptions(options);
+  if (!opts.recursive && !safeRetries) opts.maxRetries = 0;
+  removeEntrySync(target, opts);
 }

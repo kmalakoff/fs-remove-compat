@@ -3,8 +3,8 @@ import fs from 'fs';
 import { rmSync, safeRmSync } from 'fs-remove-compat';
 import mkdirp from 'mkdirp-classic';
 import path from 'path';
-
 import { isWindows } from '../lib/platform.ts';
+import { errorCode, intact, invalidOptions, nativeRmSync, options, tree } from '../lib/removal.ts';
 import { createScratch, TMP_DIR } from '../lib/scratch.ts';
 
 const { setupTmp, cleanTmp } = createScratch(safeRmSync);
@@ -44,8 +44,7 @@ describe('rmSync', () => {
       rmSync(dirPath);
       assert.fail('should have thrown');
     } catch (err: unknown) {
-      const code = (err as NodeJS.ErrnoException).code;
-      assert.ok(code === 'EISDIR' || code === 'ERR_FS_EISDIR', `expected EISDIR error, got ${code}`);
+      assert.equal((err as NodeJS.ErrnoException).code, 'ERR_FS_EISDIR');
     }
   });
 
@@ -91,5 +90,47 @@ describe('rmSync', () => {
       rmSync(dirPath, { recursive: true });
       assert.ok(!fs.existsSync(dirPath), 'dir should be removed');
     });
+  });
+  invalidOptions
+    .filter((item) => !Array.isArray(item.options))
+    .forEach((item) => {
+      it(`rejects invalid options before mutation: ${JSON.stringify(item.options)}`, () => {
+        const root = path.join(TMP_DIR, 'validation');
+        tree(root);
+        assert.equal(
+          errorCode(() => rmSync(root, options(item.options))),
+          item.code
+        );
+        intact(root);
+      });
+    });
+  it('rejects invalid options on a directory link before unlinking it', () => {
+    const target = path.join(TMP_DIR, 'target');
+    tree(target);
+    const link = path.join(TMP_DIR, 'link');
+    fs.symlinkSync(target, link, isWindows ? 'junction' : 'dir');
+    assert.equal(
+      errorCode(() => rmSync(link, options({ recursive: 'yes' }))),
+      'ERR_INVALID_ARG_TYPE'
+    );
+    assert.ok(fs.lstatSync(link).isSymbolicLink());
+    intact(target);
+  });
+  it('matches this runtime native handling of array options', () => {
+    const root = path.join(TMP_DIR, 'array-options');
+    tree(root);
+    const oracle = path.join(TMP_DIR, 'oracle');
+    tree(oracle);
+    let expected: string | undefined = 'ERR_INVALID_ARG_TYPE';
+    if (nativeRmSync) {
+      const oracleRmSync = nativeRmSync;
+      expected = errorCode(() => oracleRmSync(oracle, options([])));
+    }
+    assert.equal(
+      errorCode(() => rmSync(root, options([]))),
+      expected
+    );
+    intact(root);
+    intact(oracle);
   });
 });

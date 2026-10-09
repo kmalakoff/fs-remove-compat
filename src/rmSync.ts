@@ -1,6 +1,9 @@
 import fs from 'fs';
 import fallbackRmSync from './fallback/rmSync.ts';
-import type { RmOptions } from './types.ts';
+import { validateNativeOptions } from './lib/options.ts';
+import { validatePath } from './lib/path.ts';
+import { isWindows } from './lib/platform.ts';
+import type { RmOptions, RmPath } from './types.ts';
 
 /**
  * Check if native fs.rmSync is available.
@@ -8,12 +11,10 @@ import type { RmOptions } from './types.ts';
  */
 const HAS_NATIVE_RM_SYNC = typeof (fs as typeof fs & { rmSync?: unknown }).rmSync === 'function';
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
-
 /**
  * Remove a file or directory synchronously.
  *
- * This is a ponyfill that exactly matches Node.js fs.rmSync behavior:
+ * This ponyfill delegates to native fs.rmSync and backports its documented removal options:
  * - Uses native fs.rmSync when available (Node 14.14+)
  * - Falls back to custom implementation for older Node versions
  *
@@ -27,11 +28,13 @@ const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process
  * @param options.maxRetries - Retries on EBUSY/EPERM/etc. Default: 0
  * @param options.retryDelay - Delay between retries in ms. Default: 100
  */
-function rmSync(path: string, options?: RmOptions): void {
+function rmSync(path: RmPath, options?: RmOptions): void {
   if (HAS_NATIVE_RM_SYNC) {
     // On Windows, check if path is a symlink first to avoid native fs.rmSync bug
     // where it fails on broken symlinks (symlinks pointing to deleted targets)
     if (isWindows) {
+      path = validatePath(path);
+      options = validateNativeOptions(options);
       try {
         const stats = fs.lstatSync(path);
         if (stats.isSymbolicLink()) {

@@ -17,4 +17,4 @@ export { default as safeRm } from './safeRm.ts';
 export { default as safeRmSync } from './safeRmSync.ts';
 
 // Types
-export type { RmCallback, RmOptions } from './types.ts';
+export type { RmCallback, RmOptions, RmPath } from './types.ts';

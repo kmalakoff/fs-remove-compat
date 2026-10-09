@@ -1,6 +1,6 @@
 # fs-remove-compat
 
-Cross-platform file removal utilities with Node.js 0.8+ compatibility. The strict `rm` and `rmSync` functions match the Node.js `fs.rm` APIs. The `safeRm` and `safeRmSync` variants use Windows-friendly defaults for cleanup tasks.
+Cross-platform file removal utilities with Node.js 0.8+ compatibility. The `rm` and `rmSync` functions use the native Node.js `fs.rm` APIs when available and backport their documented removal options on older runtimes. The `safeRm` and `safeRmSync` variants use Windows-friendly defaults for cleanup tasks.
 
 ## Install
 
@@ -44,7 +44,11 @@ interface RmOptions {
 - `safeRm(path, [options], callback)` is the asynchronous cleanup variant.
 - `safeRmSync(path, [options])` is the synchronous cleanup variant.
 
-The asynchronous functions use Node-style callbacks. They do not return Promises. Use `safeRm` or `safeRmSync` for cleanup where Windows file locking is common. The package uses native `fs.rm` on Node 14.14 and newer and a fallback on older versions.
+The asynchronous functions use Node-style callbacks. They do not return Promises. Use `safeRm` or `safeRmSync` for cleanup where Windows file locking is common. The strict functions use native `fs.rm` on Node 14.14 and newer, with a Windows symlink workaround, and a fallback on older versions. The safe functions always use the fallback so retries stay bounded per entry and the callback waits for in-flight removals.
+
+All supported runtimes accept string and UTF-8 Buffer paths. File URLs are supported on Node 7.6 and newer. Node 6 and newer also support Buffer paths containing arbitrary filename bytes. Invalid arguments throw before removal; filesystem errors reach the callback or throw from the synchronous functions. The fallback uses current Node error codes, while native validation messages can vary by Node version.
+
+For the strict functions, `maxRetries` and `retryDelay` apply only with `recursive: true`. Safe functions retain their cleanup retries even when `recursive: false` is passed.
 
 ## License
 

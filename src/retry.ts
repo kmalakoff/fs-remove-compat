@@ -1,10 +1,9 @@
+import { validateOptions } from './lib/options.ts';
+import { isWindows } from './lib/platform.ts';
 import type { RmOptions } from './types.ts';
 
-/**
- * Retry utilities shared by the fallback walk and the safe variants.
- */
+/** Retry utilities shared by the fallback walk and the safe variants. */
 
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
 const RETRYABLE_CODES = ['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM'];
 
 /**
@@ -22,12 +21,7 @@ export const SAFE_DEFAULTS = {
  * Fill missing options from SAFE_DEFAULTS.
  */
 export function withSafeDefaults(options?: RmOptions): Required<RmOptions> {
-  return {
-    recursive: options?.recursive ?? SAFE_DEFAULTS.recursive,
-    force: options?.force ?? SAFE_DEFAULTS.force,
-    maxRetries: options?.maxRetries ?? SAFE_DEFAULTS.maxRetries,
-    retryDelay: options?.retryDelay ?? SAFE_DEFAULTS.retryDelay,
-  };
+  return validateOptions(options, SAFE_DEFAULTS);
 }
 
 /**

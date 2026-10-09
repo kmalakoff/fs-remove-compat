@@ -1,12 +1,12 @@
 import fs from 'fs';
-
-const isWindows = process.platform === 'win32' || /^(msys|cygwin)$/.test(process.env.OSTYPE ?? '');
+import type { FsPath } from '../lib/path.ts';
+import { isWindows } from '../lib/platform.ts';
 
 /**
  * On Windows, when EPERM occurs during file removal, try chmod to 0o666
  * and retry. This handles read-only files and certain permission modes.
  */
-export function fixWinEPERM(path: string, originalError: NodeJS.ErrnoException, callback: (err?: NodeJS.ErrnoException | null) => void): void {
+export function fixWinEPERM(path: FsPath, originalError: NodeJS.ErrnoException, callback: (err?: NodeJS.ErrnoException | null) => void): void {
   fs.chmod(path, 0o666, (chmodErr) => {
     if (chmodErr) {
       // chmod failed, return original error
@@ -33,7 +33,7 @@ export function fixWinEPERM(path: string, originalError: NodeJS.ErrnoException, 
 /**
  * Sync version of fixWinEPERM.
  */
-export function fixWinEPERMSync(path: string, originalError: NodeJS.ErrnoException): void {
+export function fixWinEPERMSync(path: FsPath, originalError: NodeJS.ErrnoException): void {
   try {
     fs.chmodSync(path, 0o666);
   } catch (_chmodErr) {

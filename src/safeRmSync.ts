@@ -1,6 +1,6 @@
 import fallbackRmSync from './fallback/rmSync.ts';
 import { withSafeDefaults } from './retry.ts';
-import type { RmOptions } from './types.ts';
+import type { RmOptions, RmPath } from './types.ts';
 
 /**
  * Remove a file or directory synchronously with Windows-friendly defaults.
@@ -16,8 +16,8 @@ import type { RmOptions } from './types.ts';
  * @param path - Path to remove
  * @param options - Options (with Windows-friendly defaults)
  */
-function safeRmSync(path: string, options?: RmOptions): void {
-  fallbackRmSync(path, withSafeDefaults(options));
+function safeRmSync(path: RmPath, options?: RmOptions): void {
+  fallbackRmSync(path, withSafeDefaults(options), true);
 }
 
 export default safeRmSync;
