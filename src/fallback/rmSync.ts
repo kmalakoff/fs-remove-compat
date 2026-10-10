@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { validateOptions } from '../lib/options.ts';
-import { childPath, type FsPath, HAS_BUFFER_PATHS, validatePath } from '../lib/path.ts';
+import { childPath, type FsPath, READ_BUFFER_ENTRIES, validatePath } from '../lib/path.ts';
 import { busyWait, getRetryDelay, isRetryableError } from '../retry.ts';
 import type { RmOptions, RmPath } from '../types.ts';
 import { createEISDIR } from './errors.ts';
@@ -52,7 +52,7 @@ function removeEntrySync(path: FsPath, options: Required<RmOptions>): void {
 function rmdirRecursiveSync(path: FsPath, options: Required<RmOptions>): void {
   let entries: FsPath[];
   try {
-    entries = HAS_BUFFER_PATHS ? fs.readdirSync(path, { encoding: 'buffer' }) : fs.readdirSync(path);
+    entries = READ_BUFFER_ENTRIES ? fs.readdirSync(path, { encoding: 'buffer' }) : fs.readdirSync(path);
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
     if (error.code === 'ENOENT' && options.force) return;

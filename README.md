@@ -46,7 +46,7 @@ interface RmOptions {
 
 The asynchronous functions use Node-style callbacks. They do not return Promises. Use `safeRm` or `safeRmSync` for cleanup where Windows file locking is common. The strict functions use native `fs.rm` on Node 14.14 and newer, with a Windows symlink workaround, and a fallback on older versions. The safe functions always use the fallback so retries stay bounded per entry and the callback waits for in-flight removals.
 
-All supported runtimes accept string and UTF-8 Buffer paths. File URLs are supported on Node 7.6 and newer. Node 6 and newer also support Buffer paths containing arbitrary filename bytes. Invalid arguments throw before removal; filesystem errors reach the callback or throw from the synchronous functions. The fallback uses current Node error codes, while native validation messages can vary by Node version.
+All supported runtimes accept string and UTF-8 Buffer paths. File URLs are supported on Node 7.6 and newer. Node 6 and newer also support Buffer paths containing arbitrary filename bytes on POSIX. On Windows, a Buffer path is read as UTF-8, and trees whose paths exceed 260 characters are removed for string and Buffer paths alike. Invalid arguments throw before removal; filesystem errors reach the callback or throw from the synchronous functions. The fallback uses current Node error codes, while native validation messages can vary by Node version.
 
 For the strict functions, `maxRetries` and `retryDelay` apply only with `recursive: true`. Safe functions retain their cleanup retries even when `recursive: false` is passed.
 

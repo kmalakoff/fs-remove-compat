@@ -6,6 +6,9 @@ import { invalidType } from './options.ts';
 
 export type FsPath = string | Buffer;
 export const HAS_BUFFER_PATHS = parseInt(process.versions.node.split('.')[0], 10) >= 6;
+const IS_WIN32 = process.platform === 'win32';
+// Raw-byte entries are POSIX-only: Windows keeps strings so Node adds the \\?\ prefix for paths over MAX_PATH.
+export const READ_BUFFER_ENTRIES = HAS_BUFFER_PATHS && !IS_WIN32;
 
 export function toBuffer(value: string): Buffer {
   return typeof Buffer.from === 'function' ? Buffer.from(value) : new Buffer(value);
@@ -38,6 +41,7 @@ export function validatePath(path: RmPath): FsPath {
     if (toBuffer(text).toString('hex') !== result.toString('hex')) throw invalidType('path', 'a UTF-8 Buffer on Node before 6');
     return text;
   }
+  if (Buffer.isBuffer(result) && IS_WIN32) return result.toString();
   return result;
 }
 

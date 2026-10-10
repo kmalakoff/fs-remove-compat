@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { validateCallback, validateOptions } from '../lib/options.ts';
-import { childPath, type FsPath, HAS_BUFFER_PATHS, validatePath } from '../lib/path.ts';
+import { childPath, type FsPath, READ_BUFFER_ENTRIES, validatePath } from '../lib/path.ts';
 import { getRetryDelay, isRetryableError } from '../retry.ts';
 import type { RmCallback, RmOptions, RmPath } from '../types.ts';
 import { createEISDIR } from './errors.ts';
@@ -94,7 +94,7 @@ function rmdirRecursive(path: FsPath, options: Required<RmOptions>, callback: Rm
       removeEntry(childPath(path, entries[i]), options, 0, onDone);
     }
   };
-  if (HAS_BUFFER_PATHS) fs.readdir(path, { encoding: 'buffer' }, onRead);
+  if (READ_BUFFER_ENTRIES) fs.readdir(path, { encoding: 'buffer' }, onRead);
   else fs.readdir(path, onRead);
 }
 
